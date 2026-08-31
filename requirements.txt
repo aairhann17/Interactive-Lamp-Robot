@@ -1,0 +1,52 @@
+# Interactive Lamp Robot - Python Dependencies
+
+# Core async and event handling
+asyncio>=3.11
+
+# Perception & Vision
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+
+# Speech Recognition (cloud)
+deepgram-sdk>=3.0.0
+# openai>=1.0.0  # Alternative/fallback for Whisper
+
+# Speech Synthesis
+elevenlabs>=0.2.0
+piper-tts>=1.2.0  # Local TTS fallback
+
+# Language Model (Claude API)
+anthropic>=0.28.0
+
+# Audio Processing
+PyAudio>=0.2.13
+numpy>=1.24.0
+
+# Motion Control & Kinematics
+# (For future use; not needed for simulator initially)
+scipy>=1.10.0
+
+# Sound Effects
+pygame>=2.2.0
+
+# Database
+# SQLite is built-in, but adding common patterns
+sqlalchemy>=2.0.0
+
+# Web/Network
+aiohttp>=3.9.0
+websockets>=12.0
+
+# Configuration
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Logging & Debugging
+coloredlogs>=15.0.0
+
+# Development
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+pylint>=2.17.0
+mypy>=1.5.0

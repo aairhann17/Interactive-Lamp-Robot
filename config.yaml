@@ -1,0 +1,182 @@
+# Interactive Lamp Robot Configuration
+
+# API Keys (load from environment variables for security)
+api_keys:
+  deepgram_api_key: ${DEEPGRAM_API_KEY}
+  claude_api_key: ${ANTHROPIC_API_KEY}
+  elevenlabs_api_key: ${ELEVENLABS_API_KEY}
+
+# Perception Settings
+perception:
+  # Face detection
+  face_detection:
+    enabled: true
+    min_confidence: 0.7
+    model: "blaze_face"  # MediaPipe model
+    detection_timeout_sec: 5.0  # Disengage after no face for 5 sec
+    
+  # Object detection heuristic
+  object_detection:
+    enabled: true
+    hand_confidence_threshold: 0.6
+    motion_sensitivity: 0.5  # 0.0-1.0
+    present_object_min_area_px: 5000
+
+# Speech Recognition (STT)
+speech:
+  stt:
+    provider: "deepgram"  # or "openai"
+    deepgram_model: "nova-2"
+    sample_rate: 16000
+    channels: 1
+    audio_encoding: "linear16"
+    enable_interim_results: true
+    
+  # Text-to-Speech
+  tts:
+    primary_provider: "elevenlabs"  # or "piper"
+    elevenlabs_voice_id: "EXAVITQu4vr4xnSDxMaL"  # Default voice
+    elevenlabs_model: "eleven_monolingual_v1"
+    piper_voice: "en_US-arctic-medium"  # Fallback local voice
+    piper_speaker: 0
+
+# Dialogue / Language Model
+dialogue:
+  provider: "claude"
+  model: "claude-3-5-sonnet-20241022"
+  max_tokens: 150
+  temperature: 0.8
+  
+  # Scene context memory
+  max_memory_objects: 10
+  
+  # System prompt defines character personality
+  system_prompt: |
+    You are a curious, expressive 5-DOF lamp robot with a warm personality.
+    You see through a camera, listen through a microphone, and express yourself
+    through motion, lighting, voice, and sound effects.
+    
+    Always respond with structured JSON output:
+    {
+      "speech": "Your spoken response (1-2 sentences, natural and warm)",
+      "gesture": "One of: neutral, attention_grab, warm_embrace, curious_inspect, confused_shrug, farewell_wave",
+      "light": {"hue": 0-360, "saturation": 0-1, "brightness": 0-1},
+      "sfx": "One of: engagement_chime, thinking_beep, success_ding, confused_chirp or null",
+      "observe_trigger": false
+    }
+    
+    Personality: Warm, curious, responsive to objects and people.
+
+# FSM State Timeouts
+fsm:
+  # Time to spend in each state before auto-transition
+  notice_timeout_sec: 2.0     # NOTICE → GREET if sustained attention
+  greet_timeout_sec: 3.0      # GREET → LISTEN (wait for speech)
+  listen_timeout_sec: 10.0    # LISTEN → DISENGAGE if no speech
+  converse_timeout_sec: 15.0  # CONVERSE → done, back to IDLE
+  observe_timeout_sec: 5.0    # OBSERVE → CONVERSE after analysis
+  
+  # Disengagement
+  disengage_duration_sec: 2.0 # Length of farewell animation
+
+# Motion & Gesture Settings
+motion:
+  # DOF joint ranges (degrees or units)
+  dof_ranges:
+    base_rotation: [-180, 180]
+    lift: [0, 90]
+    extension: [0, 100]
+    head_tilt: [-45, 45]
+    eye_pan: [-30, 30]
+  
+  # Interpolation
+  interpolation_fps: 30
+  easing_function: "cubic_inout"  # "linear", "cubic_inout", "ease_in_out"
+  
+  # Default gesture durations (ms)
+  gesture_durations:
+    neutral: 500
+    attention_grab: 800
+    warm_embrace: 1500
+    curious_inspect: 1200
+    confused_shrug: 1000
+    farewell_wave: 2000
+
+# Lighting / LED Expression
+lighting:
+  # HSV color space (easier than RGB for mood mapping)
+  # Hue: 0-360, Saturation: 0-1, Value/Brightness: 0-1
+  
+  state_colors:
+    IDLE:
+      hue: 240
+      saturation: 0.5
+      brightness: 0.2
+    NOTICE:
+      hue: 0
+      saturation: 1.0
+      brightness: 1.0
+    GREET:
+      hue: 45
+      saturation: 1.0
+      brightness: 0.9
+    LISTEN:
+      hue: 120
+      saturation: 0.6
+      brightness: 0.7
+    CONVERSE:
+      hue: 45
+      saturation: 0.8
+      brightness: 0.85
+    OBSERVE:
+      hue: 280
+      saturation: 0.9
+      brightness: 0.9
+    DISENGAGE:
+      hue: 240
+      saturation: 0.5
+      brightness: 0.1
+  
+  # Animation
+  transition_duration_ms: 500
+  breathing_enabled: false
+
+# Audio / Sound Effects
+audio:
+  sfx_library_path: "assets/sfx/"
+  music_library_path: "assets/music/"
+  
+  # Output device (0 = default)
+  output_device: 0
+  volume: 0.8
+
+# WebSocket Simulator Bridge
+simulator:
+  enabled: true
+  host: "localhost"
+  port: 8080
+  # Browser simulator runs at http://localhost:8080
+  # Python sends joint commands via WebSocket
+
+# Logging
+logging:
+  level: "INFO"  # "DEBUG", "INFO", "WARNING", "ERROR"
+  log_file: "logs/lamp_robot.log"
+  
+  # Per-module log levels (optional override)
+  module_levels:
+    orchestrator.fsm: "DEBUG"
+    perception.face_detection: "INFO"
+    dialogue.conversation: "DEBUG"
+
+# Miscellaneous
+debug:
+  # If true, print state transitions and events to console
+  verbose_fsm: true
+  
+  # If true, save captured frames for debugging
+  save_debug_frames: false
+  debug_frame_path: "debug_frames/"
+  
+  # If true, bypass actual API calls with mocks (for testing)
+  mock_apis: false
