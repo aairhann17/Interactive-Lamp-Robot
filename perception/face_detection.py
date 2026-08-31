@@ -31,15 +31,41 @@ class FaceDetector:
         self.is_available = cv2 is not None and mp is not None
         self._face_detector = None
         self._face_mesh = None
+        self._fallback_cascade = None
 
         if self.is_available:
             try:
-                self._face_detector = mp.solutions.face_detection.FaceDetection(
-                    min_detection_confidence=min_detection_confidence
-                )
+                if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_detection"):
+                    self._face_detector = mp.solutions.face_detection.FaceDetection(
+                        min_detection_confidence=min_detection_confidence
+                    )
+                else:
+                    logger.warning(
+                        "MediaPipe 'solutions.face_detection' is unavailable; using OpenCV cascade fallback"
+                    )
             except Exception as exc:  # pragma: no cover - environment dependent
                 logger.warning("MediaPipe face detection could not initialize: %s", exc)
-                self.is_available = False
+
+        if cv2 is not None:
+            try:
+                cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+                self._fallback_cascade = cv2.CascadeClassifier(cascade_path)
+                if self._fallback_cascade.empty():
+                    self._fallback_cascade = None
+            except Exception:  # pragma: no cover - environment dependent
+                self._fallback_cascade = None
+
+        self.is_available = self._face_detector is not None or self._fallback_cascade is not None
+
+    @staticmethod
+    def _empty_payload(source: str) -> Dict[str, Any]:
+        return {
+            "detected": False,
+            "confidence": 0.0,
+            "head_pose": {"yaw": 0.0, "pitch": 0.0, "roll": 0.0},
+            "bbox": None,
+            "source": source,
+        }
 
     async def start(self) -> None:
         if not self.is_available:
@@ -60,56 +86,63 @@ class FaceDetector:
         gracefully.
         """
         if not self.is_available:
-            return {
-                "detected": False,
-                "confidence": 0.0,
-                "head_pose": {"yaw": 0.0, "pitch": 0.0, "roll": 0.0},
-                "bbox": None,
-                "source": "unavailable",
-            }
+            return self._empty_payload("unavailable")
 
         if frame is None:
             if self.camera is None:
-                return {
-                    "detected": False,
-                    "confidence": 0.0,
-                    "head_pose": {"yaw": 0.0, "pitch": 0.0, "roll": 0.0},
-                    "bbox": None,
-                    "source": "camera_unavailable",
-                }
+                return self._empty_payload("camera_unavailable")
             ok, frame = self.camera.read()
             if not ok or frame is None:
-                return {
-                    "detected": False,
-                    "confidence": 0.0,
-                    "head_pose": {"yaw": 0.0, "pitch": 0.0, "roll": 0.0},
-                    "bbox": None,
-                    "source": "read_failed",
-                }
+                return self._empty_payload("read_failed")
+
+        # Fallback path when MediaPipe detection is unavailable in this build.
+        if self._face_detector is None and self._fallback_cascade is not None:
+            try:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                faces = self._fallback_cascade.detectMultiScale(
+                    gray,
+                    scaleFactor=1.1,
+                    minNeighbors=5,
+                    minSize=(40, 40),
+                )
+            except Exception as exc:  # pragma: no cover - runtime-dependent
+                logger.warning("OpenCV fallback face detection failed: %s", exc)
+                return self._empty_payload("fallback_processing_failed")
+
+            if len(faces) == 0:
+                return self._empty_payload("opencv_fallback")
+
+            x, y, w, h = faces[0]
+            frame_h, frame_w = gray.shape[:2]
+            xmin = x / frame_w
+            ymin = y / frame_h
+            width = w / frame_w
+            height = h / frame_h
+            head_pose = {
+                "yaw": round((xmin - 0.5) * 90.0, 2),
+                "pitch": round((ymin - 0.5) * 60.0, 2),
+                "roll": 0.0,
+            }
+            return {
+                "detected": True,
+                "confidence": 0.6,
+                "head_pose": head_pose,
+                "bbox": (xmin, ymin, width, height),
+                "source": "opencv_fallback",
+            }
 
         try:
-            results = self._face_detector.process(frame)
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = self._face_detector.process(rgb)
         except Exception as exc:  # pragma: no cover - runtime-dependent
             logger.warning("Face detection processing failed: %s", exc)
-            return {
-                "detected": False,
-                "confidence": 0.0,
-                "head_pose": {"yaw": 0.0, "pitch": 0.0, "roll": 0.0},
-                "bbox": None,
-                "source": "processing_failed",
-            }
+            return self._empty_payload("processing_failed")
 
         if not results or not results.detections:
-            return {
-                "detected": False,
-                "confidence": 0.0,
-                "head_pose": {"yaw": 0.0, "pitch": 0.0, "roll": 0.0},
-                "bbox": None,
-                "source": "processed",
-            }
+            return self._empty_payload("processed")
 
         best = results.detections[0]
-        score = best.score[0].value if best.score else 0.0
+        score = float(best.score[0]) if best.score else 0.0
         bbox = best.location_data.relative_bounding_box
         relative_bbox = (
             bbox.xmin,

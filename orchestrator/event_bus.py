@@ -83,7 +83,7 @@ class EventBus:
                             if asyncio.iscoroutine(result):
                                 await result
                         except Exception as e:
-                            logger.error(f"Error in wildcard subscriber: {e}", exc_info=True)
+                            logger.exception(f"Error in wildcard subscriber: {e}", exc_info=True)
                 
                 # Call topic-specific subscribers
                 if event.topic in self._subscribers:
@@ -93,7 +93,7 @@ class EventBus:
                             if asyncio.iscoroutine(result):
                                 await result
                         except Exception as e:
-                            logger.error(
+                            logger.exception(
                                 f"Error in subscriber for {event.topic}: {e}",
                                 exc_info=True
                             )
@@ -104,7 +104,7 @@ class EventBus:
                 # No events, keep looping
                 continue
             except Exception as e:
-                logger.error(f"Dispatch worker error: {e}", exc_info=True)
+                logger.exception(f"Dispatch worker error: {e}", exc_info=True)
     
     async def start(self) -> None:
         """Start the event dispatch worker."""

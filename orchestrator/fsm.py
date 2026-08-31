@@ -89,10 +89,10 @@ class StateMachine:
                 if asyncio.iscoroutine(result):
                     await result
             except Exception as e:
-                logger.error(f"Error in state change callback: {e}", exc_info=True)
-        
+                logger.exception(f"Error in state change callback: {e}", exc_info=True)
+
         return True
-    
+
     async def set_timeout(self, timeout_sec: float, next_state: RobotState) -> None:
         """
         Set a timeout for the current state.
@@ -115,7 +115,7 @@ class StateMachine:
             except asyncio.CancelledError:
                 pass
             except Exception as e:
-                logger.error(f"Error in timeout handler: {e}", exc_info=True)
+                logger.exception(f"Error in timeout handler: {e}", exc_info=True)
         
         # Store the task so we can cancel it if we leave state early
         task = asyncio.create_task(_timeout_handler())
