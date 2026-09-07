@@ -17,6 +17,12 @@ def parse_args() -> argparse.Namespace:
     """Parse demo runtime options."""
     parser = argparse.ArgumentParser(description="Run the lamp robot interaction demo")
     parser.add_argument(
+        "--bridge-url",
+        type=str,
+        default=None,
+        help="WebSocket URL of an already running simulator bridge server.",
+    )
+    parser.add_argument(
         "--hold-seconds",
         type=float,
         default=1.0,
@@ -25,8 +31,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-async def run_demo(hold_seconds: float = 1.0) -> None:
-    orchestrator = RobotOrchestrator()
+async def run_demo(hold_seconds: float = 1.0, bridge_url: str | None = None) -> None:
+    orchestrator = RobotOrchestrator(simulator_bridge_url=bridge_url)
 
     await orchestrator.event_bus.start()
     orchestrator._setup_event_subscriptions()
@@ -67,4 +73,4 @@ async def run_demo(hold_seconds: float = 1.0) -> None:
 
 if __name__ == "__main__":
     args = parse_args()
-    asyncio.run(run_demo(hold_seconds=args.hold_seconds))
+    asyncio.run(run_demo(hold_seconds=args.hold_seconds, bridge_url=args.bridge_url))

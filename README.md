@@ -197,6 +197,11 @@ IDLE
   }
   ```
 
+**Run modes:**
+- Persistent bridge server: `python -m sim_bridge.run_server`
+- Demo publisher against an external bridge: `python demo/interaction_demo.py --bridge-url ws://127.0.0.1:8765`
+- Default demo mode still starts its own local bridge when `--bridge-url` is omitted
+
 ### 7. **Gesture Choreography & Trajectory Planning**
 
 **Module:** `choreography/interpolation.py`

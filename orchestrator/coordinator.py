@@ -18,6 +18,7 @@ from memory.scene_memory import SceneMemory
 from orchestrator.fsm import StateMachine, RobotState
 from orchestrator.event_bus import get_event_bus, Event
 from perception import PerceptionPipeline
+from sim_bridge.publisher import SimulatorBridgePublisher
 from sim_bridge.websocket_server import SimulatorBridge
 from speech.stt import SpeechToText
 from speech.tts import TextToSpeech
@@ -38,11 +39,12 @@ class RobotOrchestrator:
     - Coordinate memory updates
     """
     
-    def __init__(self, config_path: str = "config.yaml"):
+    def __init__(self, config_path: str = "config.yaml", simulator_bridge_url: Optional[str] = None):
         """Initialize orchestrator with config."""
         self.config = self._load_config(config_path)
         self.fsm = StateMachine(initial_state=RobotState.IDLE)
         self.event_bus = get_event_bus()
+        self._simulator_bridge_url = simulator_bridge_url or self.config.get("simulator", {}).get("bridge_url")
         
         # Initialize subsystems
         self.perception = PerceptionPipeline(
@@ -59,10 +61,13 @@ class RobotOrchestrator:
             "sfx": SFXController(),
         }
         self.memory = SceneMemory()
-        self.simulator_bridge = SimulatorBridge(
-            host=self.config.get("simulator", {}).get("host", "127.0.0.1"),
-            port=int(self.config.get("simulator", {}).get("port", 8765)),
-        )
+        if self._simulator_bridge_url:
+            self.simulator_bridge = SimulatorBridgePublisher(self._simulator_bridge_url)
+        else:
+            self.simulator_bridge = SimulatorBridge(
+                host=self.config.get("simulator", {}).get("host", "127.0.0.1"),
+                port=int(self.config.get("simulator", {}).get("port", 8765)),
+            )
         self.fsm.on_state_change(self._on_state_changed)
         
         # Current context
