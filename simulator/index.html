@@ -18,29 +18,38 @@
         </div>
       </section>
       <aside class="panel">
-        <div class="card">
-          <h1>Interactive Lamp Robot</h1>
-          <p id="status">Connecting to simulator bridge…</p>
+        <div class="card hero">
+          <div class="hero-top">
+            <div>
+              <h1>Interactive Lamp Robot</h1>
+              <p class="subtitle">Live simulator feed from the local bridge.</p>
+            </div>
+            <div class="badge" id="bridgeBadge">Connecting…</div>
+          </div>
+          <p class="status" id="status">Waiting for a websocket connection.</p>
+          <p class="meta" id="lastUpdate">Last update: never</p>
         </div>
-        <div class="card">
-          <h2>State</h2>
-          <div class="value" id="state">IDLE</div>
-        </div>
-        <div class="card">
-          <h2>Motion</h2>
-          <div class="value text" id="motion">Waiting…</div>
-        </div>
-        <div class="card">
-          <h2>Light</h2>
-          <div class="value text" id="light">Waiting…</div>
-        </div>
-        <div class="card">
-          <h2>Last Speech</h2>
-          <div class="value text" id="speech">Waiting…</div>
-        </div>
-        <div class="card">
-          <h2>Memory</h2>
-          <div class="value text" id="memory">Nothing observed yet.</div>
+        <div class="metrics-grid">
+          <div class="card metric-card">
+            <h2>State</h2>
+            <div class="value" id="state">IDLE</div>
+          </div>
+          <div class="card metric-card">
+            <h2>Motion</h2>
+            <div class="value text" id="motion">Waiting…</div>
+          </div>
+          <div class="card metric-card">
+            <h2>Light</h2>
+            <div class="value text" id="light">Waiting…</div>
+          </div>
+          <div class="card metric-card metric-wide">
+            <h2>Last Speech</h2>
+            <div class="value text" id="speech">Waiting…</div>
+          </div>
+          <div class="card metric-card metric-wide">
+            <h2>Memory</h2>
+            <div class="value text" id="memory">Nothing observed yet.</div>
+          </div>
         </div>
       </aside>
     </main>

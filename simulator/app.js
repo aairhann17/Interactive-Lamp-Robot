@@ -5,7 +5,9 @@ let reconnectAttempts = 0;
 const lamp = document.getElementById("lamp");
 const head = document.getElementById("head");
 const eye = document.getElementById("eye");
+const bridgeBadge = document.getElementById("bridgeBadge");
 const statusEl = document.getElementById("status");
+const lastUpdateEl = document.getElementById("lastUpdate");
 const stateEl = document.getElementById("state");
 const motionEl = document.getElementById("motion");
 const lightEl = document.getElementById("light");
@@ -32,6 +34,16 @@ function setState(state) {
   applyLampTransform();
 }
 
+function setBridgeStatus(isLive, message) {
+  bridgeBadge.textContent = isLive ? "Live" : "Connecting";
+  bridgeBadge.classList.toggle("is-live", isLive);
+  statusEl.textContent = message;
+}
+
+function markUpdate() {
+  lastUpdateEl.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+}
+
 function applyLampTransform() {
   const stateTilt = lamp.dataset.stateTilt || "0deg";
   const motionTilt = lamp.dataset.motionTilt || "0deg";
@@ -49,18 +61,18 @@ function connect() {
 
   socket.addEventListener("open", () => {
     reconnectAttempts = 0;
-    statusEl.textContent = "Connected to simulator bridge.";
+    setBridgeStatus(true, "Connected to simulator bridge.");
   });
 
   socket.addEventListener("close", () => {
-    statusEl.textContent = "Disconnected from simulator bridge.";
+    setBridgeStatus(false, "Disconnected from simulator bridge.");
     const delay = Math.min(1000 + reconnectAttempts * 1000, 5000);
     reconnectAttempts += 1;
     reconnectTimer = window.setTimeout(connect, delay);
   });
 
   socket.addEventListener("error", () => {
-    statusEl.textContent = "Simulator bridge unavailable, retrying…";
+    setBridgeStatus(false, "Simulator bridge unavailable, retrying…");
   });
 
   socket.addEventListener("message", (event) => {
@@ -87,6 +99,8 @@ function connect() {
     if (message.type === "memory") {
       memoryEl.textContent = `${message.label}: ${message.description}`;
     }
+
+    markUpdate();
   });
 }
 
@@ -104,4 +118,5 @@ function updateMotion(data) {
 }
 
 setState("IDLE");
+setBridgeStatus(false, "Waiting for a websocket connection.");
 connect();

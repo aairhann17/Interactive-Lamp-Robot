@@ -243,9 +243,13 @@ class RobotOrchestrator:
     
     async def _on_speech_received(self, event: Event) -> None:
         """Handle speech input."""
+        self.current_user_speech = event.payload.get("text", "")
+        logger.info(f"Speech received: {self.current_user_speech}")
+
+        if self.simulator_bridge and self.current_user_speech:
+            await self.simulator_bridge.send_speech(self.current_user_speech)
+
         if self.fsm.can_listen():
-            self.current_user_speech = event.payload.get("text", "")
-            logger.info(f"Speech received: {self.current_user_speech}")
             
             # Transition to CONVERSE to process response
             await self.fsm.transition_to(RobotState.CONVERSE)

@@ -57,7 +57,14 @@ class SimulatorBridge:
                     await websocket.send(json.dumps(message))
 
             async for message in websocket:
-                logger.debug("Ignoring simulator client message: %s", message)
+                try:
+                    payload = json.loads(message)
+                except json.JSONDecodeError:
+                    logger.debug("Ignoring non-JSON simulator client message: %s", message)
+                    continue
+
+                if isinstance(payload, dict):
+                    await self._broadcast(payload)
         except Exception as exc:
             logger.debug("Simulator client disconnected: %s", exc)
         finally:
