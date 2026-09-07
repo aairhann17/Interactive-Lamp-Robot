@@ -30,11 +30,11 @@ class SimulatorBridgePublisher:
                 self._socket = None
 
     async def _ensure_connected(self) -> bool:
-        if self._socket is not None and not self._socket.closed:
+        if self._socket is not None:
             return True
 
         async with self._connect_lock:
-            if self._socket is not None and not self._socket.closed:
+            if self._socket is not None:
                 return True
 
             try:
