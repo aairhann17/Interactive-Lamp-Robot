@@ -20,7 +20,7 @@ class SimulatorBridge:
         self._server = None
         self._clients: Set[Any] = set()
         self._running = False
-        self._last_state: Optional[Dict[str, Any]] = None
+        self._last_messages: Dict[str, Dict[str, Any]] = {}
 
     async def start(self) -> None:
         if self._running:
@@ -51,8 +51,10 @@ class SimulatorBridge:
         logger.info("Simulator client connected")
 
         try:
-            if self._last_state is not None:
-                await websocket.send(json.dumps(self._last_state))
+            for message_type in ("state", "motion", "lighting", "speech", "memory"):
+                message = self._last_messages.get(message_type)
+                if message is not None:
+                    await websocket.send(json.dumps(message))
 
             async for message in websocket:
                 logger.debug("Ignoring simulator client message: %s", message)
@@ -62,7 +64,9 @@ class SimulatorBridge:
             self._clients.discard(websocket)
 
     async def _broadcast(self, message: Dict[str, Any]) -> None:
-        self._last_state = message if message.get("type") == "state" else self._last_state
+        message_type = message.get("type")
+        if message_type:
+            self._last_messages[message_type] = message
 
         if not self._clients:
             return

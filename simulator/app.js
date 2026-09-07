@@ -1,4 +1,6 @@
-const socket = new WebSocket("ws://127.0.0.1:8765");
+let socket;
+let reconnectTimer = null;
+let reconnectAttempts = 0;
 
 const lamp = document.getElementById("lamp");
 const head = document.getElementById("head");
@@ -27,6 +29,56 @@ function setState(state) {
   lamp.style.transform = `rotate(${styles.tilt})`;
 }
 
+function connect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+
+  socket = new WebSocket("ws://127.0.0.1:8765");
+
+  socket.addEventListener("open", () => {
+    reconnectAttempts = 0;
+    statusEl.textContent = "Connected to simulator bridge.";
+  });
+
+  socket.addEventListener("close", () => {
+    statusEl.textContent = "Disconnected from simulator bridge.";
+    const delay = Math.min(1000 + reconnectAttempts * 1000, 5000);
+    reconnectAttempts += 1;
+    reconnectTimer = window.setTimeout(connect, delay);
+  });
+
+  socket.addEventListener("error", () => {
+    statusEl.textContent = "Simulator bridge unavailable, retrying…";
+  });
+
+  socket.addEventListener("message", (event) => {
+    const message = JSON.parse(event.data);
+
+    if (message.type === "state") {
+      setState(message.new_state);
+    }
+
+    if (message.type === "motion") {
+      updateMotion(message);
+    }
+
+    if (message.type === "lighting" && Array.isArray(message.rgb)) {
+      const [r, g, b] = message.rgb;
+      lamp.style.filter = `drop-shadow(0 0 28px rgba(${r}, ${g}, ${b}, 0.42))`;
+    }
+
+    if (message.type === "speech") {
+      speechEl.textContent = message.text;
+    }
+
+    if (message.type === "memory") {
+      memoryEl.textContent = `${message.label}: ${message.description}`;
+    }
+  });
+}
+
 function updateMotion(data) {
   const base = data.joints?.base_rotation ?? 0;
   const lift = data.joints?.lift ?? 20;
@@ -37,37 +89,5 @@ function updateMotion(data) {
   head.style.translate = `${extension / 20}px ${-lift / 12}px`;
 }
 
-socket.addEventListener("open", () => {
-  statusEl.textContent = "Connected to simulator bridge.";
-});
-
-socket.addEventListener("close", () => {
-  statusEl.textContent = "Disconnected from simulator bridge.";
-});
-
-socket.addEventListener("message", (event) => {
-  const message = JSON.parse(event.data);
-
-  if (message.type === "state") {
-    setState(message.new_state);
-  }
-
-  if (message.type === "motion") {
-    updateMotion(message);
-  }
-
-  if (message.type === "lighting" && Array.isArray(message.rgb)) {
-    const [r, g, b] = message.rgb;
-    lamp.style.filter = `drop-shadow(0 0 28px rgba(${r}, ${g}, ${b}, 0.42))`;
-  }
-
-  if (message.type === "speech") {
-    speechEl.textContent = message.text;
-  }
-
-  if (message.type === "memory") {
-    memoryEl.textContent = `${message.label}: ${message.description}`;
-  }
-});
-
 setState("IDLE");
+connect();
