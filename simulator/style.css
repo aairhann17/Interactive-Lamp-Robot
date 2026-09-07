@@ -150,6 +150,10 @@ p {
   line-height: 1.5;
 }
 
+.card .value.text {
+  word-break: break-word;
+}
+
 @keyframes breathe {
   0%,
   100% { transform: scale(0.95); opacity: 0.6; }

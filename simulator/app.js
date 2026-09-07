@@ -7,6 +7,8 @@ const head = document.getElementById("head");
 const eye = document.getElementById("eye");
 const statusEl = document.getElementById("status");
 const stateEl = document.getElementById("state");
+const motionEl = document.getElementById("motion");
+const lightEl = document.getElementById("light");
 const speechEl = document.getElementById("speech");
 const memoryEl = document.getElementById("memory");
 
@@ -26,7 +28,15 @@ function setState(state) {
   lamp.style.filter = `drop-shadow(0 0 26px ${styles.glow})`;
   head.style.boxShadow = `0 0 42px ${styles.glow}`;
   eye.style.background = styles.eye;
-  lamp.style.transform = `rotate(${styles.tilt})`;
+  lamp.dataset.stateTilt = styles.tilt;
+  applyLampTransform();
+}
+
+function applyLampTransform() {
+  const stateTilt = lamp.dataset.stateTilt || "0deg";
+  const motionTilt = lamp.dataset.motionTilt || "0deg";
+  const motionShift = lamp.dataset.motionShift || "translate(0px, 0px)";
+  lamp.style.transform = `rotate(${stateTilt}) rotate(${motionTilt}) ${motionShift}`;
 }
 
 function connect() {
@@ -67,6 +77,7 @@ function connect() {
     if (message.type === "lighting" && Array.isArray(message.rgb)) {
       const [r, g, b] = message.rgb;
       lamp.style.filter = `drop-shadow(0 0 28px rgba(${r}, ${g}, ${b}, 0.42))`;
+      lightEl.textContent = `${message.state || "unknown"}: rgb(${r}, ${g}, ${b})`;
     }
 
     if (message.type === "speech") {
@@ -85,8 +96,11 @@ function updateMotion(data) {
   const extension = data.joints?.extension ?? 10;
   const headTilt = data.joints?.head_tilt ?? 0;
 
-  lamp.style.transform = `rotate(${base / 12}deg) skewY(${headTilt / 20}deg)`;
-  head.style.translate = `${extension / 20}px ${-lift / 12}px`;
+  lamp.dataset.motionTilt = `${base / 12}deg`;
+  lamp.dataset.motionShift = `translate(${extension / 20}px, ${-lift / 12}px)`;
+  head.style.transform = `translateX(-50%) rotate(${headTilt / 2}deg)`;
+  motionEl.textContent = `${data.gesture || "gesture"} · base ${base.toFixed(1)}° · lift ${lift.toFixed(1)} · ext ${extension.toFixed(1)}`;
+  applyLampTransform();
 }
 
 setState("IDLE");
