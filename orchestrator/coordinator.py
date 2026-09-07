@@ -18,6 +18,7 @@ from memory.scene_memory import SceneMemory
 from orchestrator.fsm import StateMachine, RobotState
 from orchestrator.event_bus import get_event_bus, Event
 from perception import PerceptionPipeline
+from sim_bridge.websocket_server import SimulatorBridge
 from speech.stt import SpeechToText
 from speech.tts import TextToSpeech
 
@@ -58,7 +59,11 @@ class RobotOrchestrator:
             "sfx": SFXController(),
         }
         self.memory = SceneMemory()
-        self.simulator_bridge = None
+        self.simulator_bridge = SimulatorBridge(
+            host=self.config.get("simulator", {}).get("host", "127.0.0.1"),
+            port=int(self.config.get("simulator", {}).get("port", 8765)),
+        )
+        self.fsm.on_state_change(self._on_state_changed)
         
         # Current context
         self.current_user_speech = ""
@@ -101,6 +106,7 @@ class RobotOrchestrator:
                 await asyncio.sleep(0.1)
         except asyncio.CancelledError:
             logger.info("Orchestrator cancelled")
+            raise
         finally:
             await self.shutdown()
     
@@ -171,6 +177,34 @@ class RobotOrchestrator:
         )
         
         logger.info("Event subscriptions configured")
+
+    async def _on_state_changed(self, old_state: RobotState, new_state: RobotState) -> None:
+        """Publish state changes to the simulator bridge and event bus."""
+        await self.event_bus.publish(Event(
+            topic="orchestrator.state_changed",
+            payload={"old_state": old_state.value, "new_state": new_state.value},
+        ))
+
+        if self.simulator_bridge:
+            await self.simulator_bridge.send_state(old_state.value, new_state.value)
+
+        if self.simulator_bridge and new_state in (RobotState.NOTICE, RobotState.GREET, RobotState.DISENGAGE):
+            await self._publish_state_expression(new_state)
+
+    async def _publish_state_expression(self, state: RobotState) -> None:
+        """Send a simple state-specific expression to the simulator."""
+        gesture_name = {
+            RobotState.NOTICE: "attention_grab",
+            RobotState.GREET: "warm_embrace",
+            RobotState.DISENGAGE: "farewell_wave",
+        }.get(state, "neutral")
+
+        motion = await self.expression["gesture"].execute(gesture_name)
+        await self.simulator_bridge.send_motion(motion)
+
+        brightness = 0.9 if state != RobotState.DISENGAGE else 0.5
+        light = await self.expression["lighting"].set_state_color(state.value, brightness)
+        await self.simulator_bridge.send_lighting(light)
     
     async def _on_face_detected(self, event: Event) -> None:
         """Handle face detection."""
@@ -224,24 +258,12 @@ class RobotOrchestrator:
     async def _on_llm_response(self, event: Event) -> None:
         """Handle LLM-generated response."""
         payload = event.payload
-        
         logger.info(f"LLM response: {payload.get('speech', '')}")
-        
-        # Store response for expression
+
         self.fsm.set_state_data("llm_response", payload)
-        
-        # Trigger expression (gesture + light + sound + speech)
+
         if self.expression:
-            gesture_name = payload.get("gesture", "neutral")
-            light = payload.get("light", {"hue": 48, "saturation": 0.8, "brightness": 0.85})
-            brightness = float(light.get("brightness", 0.85))
-            state_name = self.fsm.current_state.value if self.fsm.current_state else "IDLE"
-            await self.expression["gesture"].execute(gesture_name)
-            await self.expression["lighting"].set_state_color(state_name, brightness)
-            if payload.get("sfx"):
-                await self.expression["sfx"].play(payload["sfx"])
-            if payload.get("speech"):
-                await self.text_to_speech.speak(payload["speech"])
+            await self._execute_expression_payload(payload)
         
         # Check if we need to observe an object
         if payload.get("observe_trigger", False):
@@ -270,6 +292,30 @@ class RobotOrchestrator:
         
         if self.memory:
             await self.memory.store_object(object_label, description)
+
+        if self.simulator_bridge:
+            await self.simulator_bridge.send_memory({"label": object_label, "description": description})
+
+    async def _execute_expression_payload(self, payload: dict) -> None:
+        """Execute the multimodal response payload and mirror it to the simulator."""
+        gesture_name = payload.get("gesture", "neutral")
+        light = payload.get("light", {"hue": 48, "saturation": 0.8, "brightness": 0.85})
+        brightness = float(light.get("brightness", 0.85))
+        state_name = self.fsm.current_state.value if self.fsm.current_state else "IDLE"
+
+        motion = await self.expression["gesture"].execute(gesture_name)
+        lighting = await self.expression["lighting"].set_state_color(state_name, brightness)
+
+        if payload.get("sfx"):
+            await self.expression["sfx"].play(payload["sfx"])
+        if payload.get("speech"):
+            await self.text_to_speech.speak(payload["speech"])
+
+        if self.simulator_bridge:
+            await self.simulator_bridge.send_motion(motion)
+            await self.simulator_bridge.send_lighting(lighting)
+            if payload.get("speech"):
+                await self.simulator_bridge.send_speech(payload["speech"])
         
         # Transition back to listening for follow-up questions
         if self.fsm.current_state == RobotState.OBSERVE:
@@ -294,6 +340,8 @@ class RobotOrchestrator:
         logger.info("Starting subsystems")
         # Minimal no-op startup for the current MVP; real integrations can be
         # added here when their runtime backends are available.
+        if self.simulator_bridge:
+            await self.simulator_bridge.start()
     
     @property
     def state(self) -> RobotState:

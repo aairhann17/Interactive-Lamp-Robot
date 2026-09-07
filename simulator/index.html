@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Interactive Lamp Robot Simulator</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="stage">
+        <div class="halo"></div>
+        <div class="lamp" id="lamp">
+          <div class="base"></div>
+          <div class="arm"></div>
+          <div class="head" id="head"></div>
+          <div class="eye" id="eye"></div>
+        </div>
+      </section>
+      <aside class="panel">
+        <div class="card">
+          <h1>Interactive Lamp Robot</h1>
+          <p id="status">Connecting to simulator bridge…</p>
+        </div>
+        <div class="card">
+          <h2>State</h2>
+          <div class="value" id="state">IDLE</div>
+        </div>
+        <div class="card">
+          <h2>Last Speech</h2>
+          <div class="value text" id="speech">Waiting…</div>
+        </div>
+        <div class="card">
+          <h2>Memory</h2>
+          <div class="value text" id="memory">Nothing observed yet.</div>
+        </div>
+      </aside>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
