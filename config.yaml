@@ -193,3 +193,6 @@ startup:
 # Hardware backend selection
 hardware:
   mode: "simulator"  # Future values: "real", "simulator"
+  serial_port: ""  # Example: COM3 or /dev/ttyUSB0
+  serial_baudrate: 115200
+  camera_index: 0

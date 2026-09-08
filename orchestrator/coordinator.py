@@ -45,7 +45,10 @@ class RobotOrchestrator:
         self.fsm = StateMachine(initial_state=RobotState.IDLE)
         self.event_bus = get_event_bus()
         self._simulator_bridge_url = simulator_bridge_url or self.config.get("simulator", {}).get("bridge_url")
-        self.hardware = create_robot_hardware(self.config.get("hardware", {}).get("mode", "simulator"))
+        self.hardware = create_robot_hardware(
+            self.config.get("hardware", {}).get("mode", "simulator"),
+            self.config.get("hardware", {}),
+        )
         
         # Initialize subsystems
         self.perception = PerceptionPipeline(
@@ -87,33 +90,39 @@ class RobotOrchestrator:
 
         errors: list[str] = []
         startup_config = self.config.get("startup", {})
+        errors.extend(self._validate_required_api_keys(startup_config))
+        errors.extend(self._validate_hardware_startup(startup_config))
+
+        if errors:
+            raise RuntimeError("Startup validation failed: " + "; ".join(errors))
+
+    def _validate_required_api_keys(self, startup_config: dict) -> list[str]:
         required_api_keys = startup_config.get(
             "required_api_keys",
             ["DEEPGRAM_API_KEY", "ANTHROPIC_API_KEY", "ELEVENLABS_API_KEY"],
         )
-
         missing_api_keys = [name for name in required_api_keys if not os.getenv(name)]
         if missing_api_keys:
-            errors.append(f"Missing API keys: {', '.join(missing_api_keys)}")
+            return [f"Missing API keys: {', '.join(missing_api_keys)}"]
+        return []
 
-        if startup_config.get("require_camera", False):
-            try:
-                import cv2  # type: ignore
-            except Exception as exc:  # pragma: no cover - optional dependency surface
-                errors.append(f"OpenCV camera check unavailable: {exc}")
-            else:
-                camera_index = int(
-                    self.config.get("perception", {}).get("camera_index", 0)
-                )
-                capture = cv2.VideoCapture(camera_index)
-                try:
-                    if not capture.isOpened():
-                        errors.append(f"Camera index {camera_index} is not available")
-                finally:
-                    capture.release()
+    def _validate_hardware_startup(self, startup_config: dict) -> list[str]:
+        errors: list[str] = []
+        if not startup_config.get("require_camera", False):
+            return errors
 
-        if errors:
-            raise RuntimeError("Startup validation failed: " + "; ".join(errors))
+        if getattr(self.hardware, "mode", "simulator") == "real":
+            readiness = self.hardware.probe_startup()
+            if not readiness.get("camera_available", True):
+                errors.extend(readiness.get("details", []))
+            if not readiness.get("serial_available", True):
+                errors.extend(readiness.get("details", []))
+            return errors
+
+        if self.config.get("hardware", {}).get("camera_index", 0) < 0:
+            errors.append("Invalid camera index")
+
+        return errors
     
     def _load_config(self, config_path: str) -> dict:
         """Load configuration from YAML file."""
