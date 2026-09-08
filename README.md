@@ -32,6 +32,16 @@ Real hardware mode uses a JSON-over-serial envelope defined in `hardware/device_
 
 The current implementation sends commands over a serial transport, so the firmware side only needs to parse one stable message shape.
 
+## Firmware Reference
+
+The repo includes a starter firmware sketch at [firmware/lamp_robot_firmware.ino](firmware/lamp_robot_firmware.ino) that shows how to:
+
+- parse the JSON protocol envelope from serial input
+- route motion, lighting, and sound commands to actuator handlers
+- answer a simple health-check command
+
+Use it as the starting point for the microcontroller side of the robot.
+
 ## System Architecture
 
 ### 1. **Orchestrator / Core Logic** (`orchestrator.py`)
