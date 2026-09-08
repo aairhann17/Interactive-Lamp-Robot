@@ -3,6 +3,23 @@
 ## Overview
 A 5-DOF expressive lamp robot character that engages with humans through vision, voice, motion, light, and sound. The system uses a local finite-state machine (FSM) as the orchestrator, with selective cloud APIs for specialized perception and language tasks.
 
+## Quick Start
+
+This project is designed to be easy to run locally for a live demo or portfolio review.
+
+1. Clone the repo and open it in VS Code or your editor of choice.
+2. Create and activate a Python virtual environment.
+3. Install dependencies with `pip install -r requirements.txt`.
+4. Run the app with `python main.py`.
+5. Open `simulator/index.html` in your browser.
+6. Use the browser controls to trigger states or run the full demo.
+
+Optional:
+
+- Use `python main.py --strict-startup` if you want the app to fail fast when required API keys or hardware checks are missing.
+- Set `hardware.mode: "real"` in `config.yaml` only when you have actual device drivers connected.
+- Leave the default simulator mode in place for recruiter demos so the project always runs cleanly on a fresh machine.
+
 ## System Architecture
 
 ### 1. **Orchestrator / Core Logic** (`orchestrator.py`)
