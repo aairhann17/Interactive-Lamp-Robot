@@ -180,3 +180,7 @@ debug:
   
   # If true, bypass actual API calls with mocks (for testing)
   mock_apis: false
+
+# Hardware backend selection
+hardware:
+  mode: "simulator"  # Future values: "real", "simulator"

@@ -1,6 +1,8 @@
 let socket;
 let reconnectTimer = null;
 let reconnectAttempts = 0;
+let connectionIndex = 0;
+const bridgeUrls = ["ws://127.0.0.1:8080", "ws://127.0.0.1:8765"];
 
 const lamp = document.getElementById("lamp");
 const head = document.getElementById("head");
@@ -13,6 +15,8 @@ const motionEl = document.getElementById("motion");
 const lightEl = document.getElementById("light");
 const speechEl = document.getElementById("speech");
 const memoryEl = document.getElementById("memory");
+const stateControls = document.getElementById("stateControls");
+const presetControls = document.getElementById("presetControls");
 
 const stateStyles = {
   IDLE: { glow: "rgba(122, 215, 255, 0.18)", eye: "#07131f", tilt: "0deg" },
@@ -44,6 +48,33 @@ function markUpdate() {
   lastUpdateEl.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
 }
 
+function sendControl(state) {
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    setBridgeStatus(false, "Bridge is offline, cannot send manual control.");
+    return;
+  }
+
+  socket.send(JSON.stringify({ type: "control", command: "set_state", state }));
+}
+
+function sendPreset(preset) {
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    setBridgeStatus(false, "Bridge is offline, cannot run a preset.");
+    return;
+  }
+
+  socket.send(JSON.stringify({ type: "control", command: preset === "full" ? "run_demo" : "set_state", state: presetStateMap[preset], preset }));
+}
+
+const presetStateMap = {
+  engage: "NOTICE",
+  greet: "GREET",
+  listen: "LISTEN",
+  observe: "OBSERVE",
+  disengage: "DISENGAGE",
+  full: "IDLE",
+};
+
 function applyLampTransform() {
   const stateTilt = lamp.dataset.stateTilt || "0deg";
   const motionTilt = lamp.dataset.motionTilt || "0deg";
@@ -57,7 +88,8 @@ function connect() {
     reconnectTimer = null;
   }
 
-  socket = new WebSocket("ws://127.0.0.1:8765");
+  const bridgeUrl = bridgeUrls[connectionIndex % bridgeUrls.length];
+  socket = new WebSocket(bridgeUrl);
 
   socket.addEventListener("open", () => {
     reconnectAttempts = 0;
@@ -66,6 +98,7 @@ function connect() {
 
   socket.addEventListener("close", () => {
     setBridgeStatus(false, "Disconnected from simulator bridge.");
+    connectionIndex = (connectionIndex + 1) % bridgeUrls.length;
     const delay = Math.min(1000 + reconnectAttempts * 1000, 5000);
     reconnectAttempts += 1;
     reconnectTimer = window.setTimeout(connect, delay);
@@ -120,3 +153,45 @@ function updateMotion(data) {
 setState("IDLE");
 setBridgeStatus(false, "Waiting for a websocket connection.");
 connect();
+
+stateControls.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-state]");
+  if (!button) {
+    return;
+  }
+
+  sendControl(button.dataset.state);
+});
+
+presetControls.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-preset]");
+  if (!button) {
+    return;
+  }
+
+  sendPreset(button.dataset.preset);
+});
+
+window.addEventListener("keydown", (event) => {
+  const keyMap = {
+    "1": "IDLE",
+    "2": "NOTICE",
+    "3": "GREET",
+    "4": "LISTEN",
+    "5": "CONVERSE",
+    "6": "OBSERVE",
+    "7": "DISENGAGE",
+    i: "IDLE",
+    n: "NOTICE",
+    g: "GREET",
+    l: "LISTEN",
+    c: "CONVERSE",
+    o: "OBSERVE",
+    d: "DISENGAGE",
+  };
+
+  const state = keyMap[event.key.toLowerCase()];
+  if (state) {
+    sendControl(state);
+  }
+});

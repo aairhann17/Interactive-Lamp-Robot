@@ -30,6 +30,31 @@
           <p class="meta" id="lastUpdate">Last update: never</p>
         </div>
         <div class="metrics-grid">
+          <div class="card metric-card metric-wide">
+            <h2>Manual Control</h2>
+            <div class="controls" id="stateControls">
+              <button type="button" data-state="IDLE">Idle</button>
+              <button type="button" data-state="NOTICE">Notice</button>
+              <button type="button" data-state="GREET">Greet</button>
+              <button type="button" data-state="LISTEN">Listen</button>
+              <button type="button" data-state="CONVERSE">Converse</button>
+              <button type="button" data-state="OBSERVE">Observe</button>
+              <button type="button" data-state="DISENGAGE">Disengage</button>
+            </div>
+            <p class="hint">Keyboard: 1-7 or I/N/G/L/C/O/D.</p>
+          </div>
+          <div class="card metric-card metric-wide">
+            <h2>Demo Presets</h2>
+            <div class="controls preset-controls" id="presetControls">
+              <button type="button" data-preset="engage">Engage</button>
+              <button type="button" data-preset="greet">Greet</button>
+              <button type="button" data-preset="listen">Listen</button>
+              <button type="button" data-preset="observe">Observe</button>
+              <button type="button" data-preset="disengage">Disengage</button>
+              <button type="button" class="primary" data-preset="full">Run Full Demo</button>
+            </div>
+            <p class="hint">Runs a scripted state, motion, light, speech, and memory sequence.</p>
+          </div>
           <div class="card metric-card">
             <h2>State</h2>
             <div class="value" id="state">IDLE</div>
@@ -53,6 +78,6 @@
         </div>
       </aside>
     </main>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=4"></script>
   </body>
 </html>

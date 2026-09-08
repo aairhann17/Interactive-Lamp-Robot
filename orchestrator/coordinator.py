@@ -10,10 +10,8 @@ from typing import Optional
 
 import yaml
 
+from hardware import create_robot_hardware
 from dialogue.conversation import ConversationManager
-from expression.gesture_controller import GestureController
-from expression.lighting import LightingController
-from expression.sfx import SFXController
 from memory.scene_memory import SceneMemory
 from orchestrator.fsm import StateMachine, RobotState
 from orchestrator.event_bus import get_event_bus, Event
@@ -45,6 +43,7 @@ class RobotOrchestrator:
         self.fsm = StateMachine(initial_state=RobotState.IDLE)
         self.event_bus = get_event_bus()
         self._simulator_bridge_url = simulator_bridge_url or self.config.get("simulator", {}).get("bridge_url")
+        self.hardware = create_robot_hardware(self.config.get("hardware", {}).get("mode", "simulator"))
         
         # Initialize subsystems
         self.perception = PerceptionPipeline(
@@ -53,12 +52,12 @@ class RobotOrchestrator:
             object_threshold=self.config.get("perception", {}).get("object_detection", {}).get("present_object_min_area_px", 5000),
         )
         self.dialogue = ConversationManager()
-        self.speech_to_text = SpeechToText()
-        self.text_to_speech = TextToSpeech()
+        self.speech_to_text = self.hardware.microphone
+        self.text_to_speech = self.hardware.speaker
         self.expression = {
-            "gesture": GestureController(),
-            "lighting": LightingController(),
-            "sfx": SFXController(),
+            "gesture": self.hardware.motion,
+            "lighting": self.hardware.lighting,
+            "sfx": self.hardware.sfx,
         }
         self.memory = SceneMemory()
         if self._simulator_bridge_url:
@@ -68,6 +67,7 @@ class RobotOrchestrator:
                 host=self.config.get("simulator", {}).get("host", "127.0.0.1"),
                 port=int(self.config.get("simulator", {}).get("port", 8765)),
             )
+            self.simulator_bridge.set_command_handler(self._handle_bridge_command)
         self.fsm.on_state_change(self._on_state_changed)
         
         # Current context
@@ -131,6 +131,8 @@ class RobotOrchestrator:
                     await controller.stop()
         if self.simulator_bridge:
             await self.simulator_bridge.stop()
+        if self.hardware:
+            await self.hardware.stop()
         
         # Cancel tasks
         for task in self._tasks:
@@ -325,6 +327,49 @@ class RobotOrchestrator:
             await self.simulator_bridge.send_lighting(lighting)
             if payload.get("speech"):
                 await self.simulator_bridge.send_speech(payload["speech"])
+
+    async def _handle_bridge_command(self, payload: dict) -> None:
+        """Apply manual control commands coming from the simulator UI."""
+        if payload.get("type") != "control":
+            return
+
+        command = payload.get("command")
+        if command == "set_state":
+            state_name = payload.get("state")
+            if not state_name:
+                return
+
+            try:
+                target_state = RobotState[state_name]
+            except KeyError:
+                logger.warning("Ignoring unknown manual state request: %s", state_name)
+                return
+
+            await self.fsm.transition_to(target_state)
+            return
+
+        if command == "run_demo":
+            await self._run_demo_sequence()
+
+    async def _run_demo_sequence(self) -> None:
+        """Run a reusable scripted sequence for the showcase."""
+        demo_steps = [
+            (RobotState.NOTICE, "Hi there. I noticed you.", "notice_entry", "A person entered the room."),
+            (RobotState.GREET, "Hello! I’m glad you’re here.", "greet_entry", "Warm greeting sequence."),
+            (RobotState.LISTEN, "I’m listening.", "listen_entry", "Waiting for user speech."),
+            (RobotState.CONVERSE, "Tell me about the object you’re holding.", "dialogue_entry", "Conversational response in progress."),
+            (RobotState.OBSERVE, "That looks like a coffee mug.", "observe_entry", "Object observation recalled."),
+            (RobotState.DISENGAGE, "Goodbye for now.", "disengage_entry", "Leaving the conversation."),
+            (RobotState.IDLE, "Standing by.", "idle_entry", "Returning to rest."),
+        ]
+
+        for state, speech_text, memory_label, memory_description in demo_steps:
+            await self.fsm.transition_to(state)
+            if self.simulator_bridge and speech_text:
+                await self.simulator_bridge.send_speech(speech_text)
+            if self.simulator_bridge:
+                await self.simulator_bridge.send_memory({"label": memory_label, "description": memory_description})
+            await asyncio.sleep(1.0)
         
         # Transition back to listening for follow-up questions
         if self.fsm.current_state == RobotState.OBSERVE:

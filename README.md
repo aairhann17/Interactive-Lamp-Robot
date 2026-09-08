@@ -288,6 +288,23 @@ IDLE
 5. **Multi-agent Collaboration:** Multiple robots interacting with each other
 6. **Fine-tuned Local LLM:** Use a smaller model (Mistral, Phi) for dialogue to reduce cloud dependency
 
+## Completion Checklist
+
+Use this as the definition of "ready to deploy":
+
+- Hardware layer exists for motion, lighting, audio input, audio output, and camera selection.
+- Simulator mode and real-device mode can be selected from config without changing application code.
+- Manual state controls work end to end in the browser simulator.
+- Full demo preset runs through notice, greet, listen, converse, observe, disengage, and idle.
+- Face detection, object detection, STT, TTS, and VLM all have deterministic fallback behavior.
+- Startup checks fail fast when a required device, API key, or service is missing.
+- Configuration is documented and all secrets come from environment variables.
+- Tests pass in CI and cover the main state transitions and fallback paths.
+- Logging is structured enough to debug a failed demo run quickly.
+- Packaging and launch instructions are repeatable from a clean machine.
+- Deployment target is defined, including ports, process supervision, and restart policy.
+- The app has one documented smoke test that a human can run before a release.
+
 ## Repository Structure
 
 ```

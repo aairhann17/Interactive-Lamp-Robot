@@ -194,6 +194,51 @@ body {
   grid-column: span 2;
 }
 
+.controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.5rem;
+}
+
+.controls button {
+  appearance: none;
+  border: 1px solid rgba(124, 177, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.controls button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(124, 177, 255, 0.5);
+  background: rgba(124, 177, 255, 0.1);
+}
+
+.controls button.primary {
+  border-color: rgba(105, 240, 174, 0.4);
+  background: rgba(105, 240, 174, 0.12);
+}
+
+.controls button.primary:hover {
+  border-color: rgba(105, 240, 174, 0.7);
+  background: rgba(105, 240, 174, 0.18);
+}
+
+.controls button:active {
+  transform: translateY(0);
+}
+
+.hint {
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 h1,
 h2,
 p {
@@ -258,5 +303,9 @@ p {
 
   .metric-wide {
     grid-column: auto;
+  }
+
+  .controls {
+    grid-template-columns: 1fr;
   }
 }
