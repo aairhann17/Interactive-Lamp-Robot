@@ -93,6 +93,20 @@ class SerialCommandTransport:
         self._connection = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
         return True
 
+    def is_available(self) -> bool:
+        if serial is None:
+            return False
+
+        try:
+            probe = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
+        except Exception:
+            return False
+
+        try:
+            return True
+        finally:
+            probe.close()
+
     def send(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         if not self.connect():
             raise RuntimeError("Serial support is unavailable")
@@ -201,9 +215,13 @@ class RobotHardware:
 
         if self.mode == "real":
             serial_port = self.metadata.get("serial_port")
+            transport = self.metadata.get("transport")
             if serial is None or not serial_port:
                 readiness["serial_available"] = False
                 readiness["details"].append("serial transport is unavailable")
+            elif transport is not None and hasattr(transport, "is_available") and not transport.is_available():
+                readiness["serial_available"] = False
+                readiness["details"].append(f"serial port {serial_port} is not available")
 
         return readiness
 
@@ -256,7 +274,12 @@ def create_robot_hardware(mode: str = "simulator", config: Optional[Dict[str, An
             speaker=TextToSpeech(),
             camera=OpenCVCameraDriver(camera_index),
             mode=mode,
-            metadata={"serial_port": serial_port, "serial_baudrate": serial_baudrate, "camera_index": camera_index},
+            metadata={
+                "serial_port": serial_port,
+                "serial_baudrate": serial_baudrate,
+                "camera_index": camera_index,
+                "transport": transport,
+            },
         )
 
     return RobotHardware(

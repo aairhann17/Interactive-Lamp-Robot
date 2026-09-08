@@ -108,15 +108,15 @@ class RobotOrchestrator:
 
     def _validate_hardware_startup(self, startup_config: dict) -> list[str]:
         errors: list[str] = []
-        if not startup_config.get("require_camera", False):
+        hardware_mode = getattr(self.hardware, "mode", "simulator")
+
+        if hardware_mode == "real":
+            readiness = self.hardware.probe_startup()
+            if not readiness.get("camera_available", True) or not readiness.get("serial_available", True):
+                errors.extend(readiness.get("details", []))
             return errors
 
-        if getattr(self.hardware, "mode", "simulator") == "real":
-            readiness = self.hardware.probe_startup()
-            if not readiness.get("camera_available", True):
-                errors.extend(readiness.get("details", []))
-            if not readiness.get("serial_available", True):
-                errors.extend(readiness.get("details", []))
+        if not startup_config.get("require_camera", False):
             return errors
 
         if self.config.get("hardware", {}).get("camera_index", 0) < 0:

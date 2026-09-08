@@ -18,3 +18,15 @@ def test_real_mode_without_serial_falls_back_to_simulator_stack():
     readiness = hardware.probe_startup()
 
     assert readiness["serial_available"] is False
+
+
+def test_real_mode_readiness_reports_missing_serial_port_details():
+    hardware = create_robot_hardware(
+        mode="real",
+        config={"serial_port": "COM99", "serial_baudrate": 115200, "camera_index": 0},
+    )
+
+    readiness = hardware.probe_startup()
+
+    assert readiness["serial_available"] is False
+    assert any("serial port" in detail for detail in readiness["details"])

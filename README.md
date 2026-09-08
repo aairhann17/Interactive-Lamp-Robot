@@ -10,15 +10,13 @@ This project is designed to be easy to run locally for a live demo or portfolio 
 1. Clone the repo and open it in VS Code or your editor of choice.
 2. Create and activate a Python virtual environment.
 3. Install dependencies with `pip install -r requirements.txt`.
-4. Run the app with `.
-un.ps1` on Windows or `python main.py` if you prefer to launch it manually.
+4. Run the app with `run.ps1` on Windows or `python main.py` if you prefer to launch it manually.
 5. The simulator page will open automatically, or you can open `simulator/index.html` in your browser.
 6. Use the browser controls to trigger states or run the full demo.
 
 Optional:
 
-- Use `.
-un.ps1 -StrictStartup` to fail fast when required API keys or hardware checks are missing.
+- Use `run.ps1 -StrictStartup` to fail fast when required API keys or hardware checks are missing.
 - Use `python main.py --strict-startup` if you want the app to fail fast when required API keys or hardware checks are missing.
 - Set `hardware.mode: "real"` in `config.yaml` only when you have actual device drivers connected.
 - Leave the default simulator mode in place for recruiter demos so the project always runs cleanly on a fresh machine.
