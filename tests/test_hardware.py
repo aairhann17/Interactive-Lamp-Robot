@@ -14,4 +14,7 @@ def test_simulator_hardware_reports_null_camera_readiness():
 def test_real_mode_without_serial_falls_back_to_simulator_stack():
     hardware = create_robot_hardware(mode="real", config={})
 
-    assert hardware.mode == "simulator"
+    assert hardware.mode == "real"
+    readiness = hardware.probe_startup()
+
+    assert readiness["serial_available"] is False
