@@ -21,6 +21,17 @@ Optional:
 - Set `hardware.mode: "real"` in `config.yaml` only when you have actual device drivers connected.
 - Leave the default simulator mode in place for recruiter demos so the project always runs cleanly on a fresh machine.
 
+## Device Protocol
+
+Real hardware mode uses a JSON-over-serial envelope defined in `hardware/device_protocol.py`.
+
+- `protocol`: `lamp-robot-device-protocol-v1`
+- `component`: `motion`, `lighting`, `sfx`, or `system`
+- `command`: the action to perform, such as `execute_gesture` or `set_state_color`
+- `payload`: command-specific data
+
+The current implementation sends commands over a serial transport, so the firmware side only needs to parse one stable message shape.
+
 ## System Architecture
 
 ### 1. **Orchestrator / Core Logic** (`orchestrator.py`)

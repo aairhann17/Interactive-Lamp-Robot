@@ -19,6 +19,7 @@ except Exception:  # pragma: no cover - optional dependency
 from expression.gesture_controller import GestureController
 from expression.lighting import LightingController
 from expression.sfx import SFXController
+from hardware.device_protocol import build_health_command, build_lighting_command, build_motion_command, build_sfx_command
 from speech.stt import SpeechToText
 from speech.tts import TextToSpeech
 
@@ -129,11 +130,7 @@ class SerialGestureController:
         self.transport = transport
 
     async def execute(self, gesture_name: str, duration_ms: int = 800) -> Dict[str, Any]:
-        payload = {
-            "component": "motion",
-            "gesture": gesture_name,
-            "duration_ms": duration_ms,
-        }
+        payload = build_motion_command(gesture_name, duration_ms)
         logger.info("Sending gesture %s to serial transport", gesture_name)
         return await asyncio.to_thread(self.transport.send, payload)
 
@@ -151,12 +148,7 @@ class SerialLightingController:
     async def set_state_color(self, state_name: str, brightness: float = 1.0) -> Dict[str, Any]:
         rgb = self.state_colors.get(state_name, self.state_colors["IDLE"])
         scaled = [int(channel * brightness) for channel in rgb]
-        payload = {
-            "component": "lighting",
-            "state": state_name,
-            "rgb": scaled,
-            "brightness": brightness,
-        }
+        payload = build_lighting_command(state_name, scaled, brightness)
         logger.info("Sending lighting state %s to serial transport", state_name)
         return await asyncio.to_thread(self.transport.send, payload)
 
@@ -171,7 +163,7 @@ class SerialSFXController:
         self.transport = transport
 
     async def play(self, sound_name: str) -> Dict[str, Any]:
-        payload = {"component": "sfx", "sound": sound_name}
+        payload = build_sfx_command(sound_name)
         logger.info("Sending sound cue %s to serial transport", sound_name)
         return await asyncio.to_thread(self.transport.send, payload)
 
@@ -231,7 +223,10 @@ class RobotHardware:
     async def probe(self) -> Dict[str, Any]:
         """Report basic readiness for the configured hardware backend."""
         await asyncio.sleep(0)
-        return self.probe_startup()
+        readiness = self.probe_startup()
+        readiness["protocol"] = build_health_command()["protocol"]
+        readiness["command"] = "health_check"
+        return readiness
 
 
 def create_robot_hardware(mode: str = "simulator", config: Optional[Dict[str, Any]] = None) -> RobotHardware:
