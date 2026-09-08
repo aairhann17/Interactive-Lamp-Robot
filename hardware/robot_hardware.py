@@ -216,9 +216,12 @@ class RobotHardware:
         if self.mode == "real":
             serial_port = self.metadata.get("serial_port")
             transport = self.metadata.get("transport")
-            if serial is None or not serial_port:
+            if not serial_port:
                 readiness["serial_available"] = False
                 readiness["details"].append("serial transport is unavailable")
+            elif serial is None:
+                readiness["serial_available"] = False
+                readiness["details"].append(f"serial port {serial_port} cannot be checked because pyserial is unavailable")
             elif transport is not None and hasattr(transport, "is_available") and not transport.is_available():
                 readiness["serial_available"] = False
                 readiness["details"].append(f"serial port {serial_port} is not available")
@@ -290,5 +293,5 @@ def create_robot_hardware(mode: str = "simulator", config: Optional[Dict[str, An
         speaker=TextToSpeech(),
         camera=NullCameraDriver(),
         mode=mode,
-        metadata={"camera_index": camera_index},
+        metadata={"camera_index": camera_index, "serial_port": serial_port, "serial_baudrate": serial_baudrate},
     )
