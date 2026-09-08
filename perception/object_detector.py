@@ -1,4 +1,7 @@
-"""Heuristic object detection for objects presented to the robot."""
+"""Object detection for the robot.
+
+This file notices when someone is showing something important to the camera.
+"""
 
 import logging
 from typing import Any, Dict, Optional, Tuple
@@ -13,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class ObjectDetector:
-    """Detect large presented objects or motion events in camera frames."""
+    """Look for a likely object in the camera view."""
 
     def __init__(self, threshold: int = 5000, history_size: int = 5) -> None:
         self.threshold = threshold

@@ -1,4 +1,8 @@
-"""End-to-end demonstration of the lamp robot interaction loop."""
+"""Scripted demo of the robot.
+
+This file pretends a person arrives, speaks, and shows an object so you can
+watch the full interaction flow without extra setup.
+"""
 
 import asyncio
 import argparse
@@ -14,7 +18,7 @@ from orchestrator.coordinator import RobotOrchestrator
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse demo runtime options."""
+    """Read the options that control how the demo runs."""
     parser = argparse.ArgumentParser(description="Run the lamp robot interaction demo")
     parser.add_argument(
         "--bridge-url",

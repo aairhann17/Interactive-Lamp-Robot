@@ -1,4 +1,7 @@
-"""Speech-to-text facade with Deepgram-first and local fallback logic."""
+"""Speech-to-text helper.
+
+This file turns spoken words into text so the robot can understand them.
+"""
 
 import asyncio
 import logging
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class SpeechToText:
-    """Simple STT wrapper that produces a stable transcript structure."""
+    """Convert speech into a plain text result for the rest of the app."""
 
     def __init__(self, api_key: Optional[str] = None) -> None:
         self.api_key = api_key or os.getenv("DEEPGRAM_API_KEY")
@@ -53,6 +56,6 @@ class SpeechToText:
             }
 
     async def listen_once(self, timeout: float = 5.0) -> Dict[str, Any]:
-        """A no-op but deterministic listen method for integration tests."""
+        """Pretend to listen once so the app can be tested predictably."""
         await asyncio.sleep(0.05)
         return await self.transcribe(text="hello there")

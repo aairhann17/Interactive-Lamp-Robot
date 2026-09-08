@@ -1,4 +1,8 @@
-"""Cloud VLM abstraction for object description analysis."""
+"""Object description helper.
+
+This file turns a camera snapshot into a short description of what the robot
+sees.
+"""
 
 import asyncio
 import logging
@@ -9,11 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class VLMAnalyzer:
-    """Thin wrapper around a cloud vision-language model.
-
-    If no API key is configured, it falls back to a deterministic placeholder
-    response so the rest of the orchestration pipeline stays testable.
-    """
+    """Ask a cloud model to describe an object, or use a safe fallback."""
 
     def __init__(self, api_key: Optional[str] = None) -> None:
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")

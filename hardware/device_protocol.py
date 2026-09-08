@@ -1,4 +1,7 @@
-"""Canonical device protocol for real robot hardware."""
+"""Shared message format for the real robot hardware.
+
+This keeps the Python app and the microcontroller speaking the same language.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +14,7 @@ PROTOCOL_NAME = "lamp-robot-device-protocol-v1"
 
 @dataclass(frozen=True)
 class DeviceCommand:
-    """Structured command envelope sent to device firmware."""
+    """A single command message for the robot controller."""
 
     component: str
     command: str

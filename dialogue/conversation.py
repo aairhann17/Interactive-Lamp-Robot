@@ -1,4 +1,8 @@
-"""Conversation manager that produces structured robot responses."""
+"""Robot conversation helper.
+
+This file turns what the person said into a short reply, a movement idea, and
+light/sound suggestions.
+"""
 
 import asyncio
 import json
@@ -16,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConversationManager:
-    """Structured-response LLM wrapper for the lamp robot."""
+    """Turn a user's words into the robot's reply plan."""
 
     def __init__(self, api_key: Optional[str] = None) -> None:
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")

@@ -1,4 +1,7 @@
-"""Text-to-speech facade with ElevenLabs-first and local fallback logic."""
+"""Text-to-speech helper.
+
+This file turns the robot's reply text into spoken audio.
+"""
 
 import asyncio
 import logging
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class TextToSpeech:
-    """Simple TTS wrapper that exposes a stable speak() interface."""
+    """Turn text into spoken output or a safe fallback result."""
 
     def __init__(self, api_key: Optional[str] = None) -> None:
         self.api_key = api_key or os.getenv("ELEVENLABS_API_KEY")

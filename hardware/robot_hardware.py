@@ -1,4 +1,8 @@
-"""Hardware abstraction layer for motion, lighting, audio, and camera access."""
+"""Hardware layer for the lamp robot.
+
+This file decides whether the app uses simulator-safe parts or real device
+drivers for movement, lights, sound, and the camera.
+"""
 
 import asyncio
 import json
@@ -28,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class NullCameraDriver:
-    """Placeholder camera driver for the current simulator-first stack."""
+    """Stand-in camera for demo mode when no real camera is attached."""
 
     async def capture_frame(self):
         await asyncio.sleep(0)

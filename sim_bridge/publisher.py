@@ -1,4 +1,7 @@
-"""WebSocket client used by the demo/orchestrator to publish simulator updates."""
+"""Sender for the browser simulator.
+
+This file pushes robot updates from Python to the page shown in the browser.
+"""
 
 import asyncio
 import json
@@ -12,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class SimulatorBridgePublisher:
-    """Publish robot updates to a running simulator bridge server."""
+    """Send robot updates to the browser bridge."""
 
     def __init__(self, uri: str = "ws://127.0.0.1:8765") -> None:
         self.uri = uri

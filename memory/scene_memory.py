@@ -1,4 +1,7 @@
-"""Scene memory for object tracking and recall."""
+"""Memory for things the robot has seen.
+
+This file helps the lamp remember objects so it can mention them later.
+"""
 
 import asyncio
 import json
@@ -17,7 +20,7 @@ class ObjectRecord:
 
 
 class SceneMemory:
-    """In-memory object store with JSON-friendly persistence."""
+    """Save and recall a small list of observed objects."""
 
     def __init__(self) -> None:
         self._objects: List[Dict[str, Any]] = []

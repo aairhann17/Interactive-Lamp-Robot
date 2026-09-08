@@ -1,7 +1,8 @@
 """
-Orchestrator Coordinator - Ties together FSM, perception, dialogue, and expression.
+Robot control center.
 
-This is the main orchestration logic that binds all subsystems.
+This file watches what the robot sees and hears, then decides what it should
+do next: move, light up, speak, remember, or wait.
 """
 
 import asyncio
@@ -28,14 +29,10 @@ logger = logging.getLogger(__name__)
 
 class RobotOrchestrator:
     """
-    Main orchestrator that coordinates all robot systems.
-    
-    Responsibilities:
-    - Maintain FSM state
-    - Subscribe to perception events
-    - Trigger expression outputs
-    - Manage dialogue flow
-    - Coordinate memory updates
+    Main controller for the robot.
+
+    It keeps the robot's behavior organized and makes sure the camera,
+    speech, memory, and expression parts stay in sync.
     """
     
     def __init__(self, config_path: str = "config.yaml", simulator_bridge_url: Optional[str] = None):

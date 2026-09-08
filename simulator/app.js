@@ -1,3 +1,5 @@
+// Browser-side controller for the demo page.
+// It connects the visual lamp to the Python bridge and updates the screen.
 let socket;
 let reconnectTimer = null;
 let reconnectAttempts = 0;

@@ -1,4 +1,7 @@
-"""Local face detection using OpenCV and MediaPipe when available."""
+"""Face detection for the robot.
+
+This file helps the lamp notice when a person is in front of it.
+"""
 
 import logging
 from typing import Any, Dict, Optional
@@ -18,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class FaceDetector:
-    """Minimal face detector used to detect engagement cues."""
+    """Look for a face so the robot knows when to pay attention."""
 
     def __init__(
         self,

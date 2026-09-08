@@ -1,4 +1,8 @@
-"""WebSocket bridge that streams orchestrator updates to the browser simulator."""
+"""Bridge between the Python app and the browser simulator.
+
+This file moves robot updates into the browser so you can watch the lamp react
+in real time.
+"""
 
 import asyncio
 import json
@@ -12,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class SimulatorBridge:
-    """Broadcast robot state and expression updates to connected clients."""
+    """Share robot updates with every connected browser window."""
 
     def __init__(self, host: str = "127.0.0.1", port: int = 8765) -> None:
         self.host = host

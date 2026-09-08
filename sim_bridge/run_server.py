@@ -1,4 +1,7 @@
-"""Run a persistent local simulator bridge server."""
+"""Start the browser bridge by itself.
+
+Use this when the simulator should connect to a separate Python bridge process.
+"""
 
 import asyncio
 import logging
