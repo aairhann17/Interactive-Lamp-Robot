@@ -305,6 +305,26 @@ Use this as the definition of "ready to deploy":
 - Deployment target is defined, including ports, process supervision, and restart policy.
 - The app has one documented smoke test that a human can run before a release.
 
+## Deployment Target
+
+The current deployment target is a supervised Python process that listens on the simulator bridge port configured in `config.yaml`.
+
+- Local development: `python main.py`
+- Deploy-oriented startup check: `python main.py --strict-startup`
+- Browser simulator bridge: `8080` by default
+- Process supervision: run the Python process under a restart-capable supervisor such as `systemd` on Linux or NSSM on Windows
+- Restart policy: restart on crash, restart on boot, and keep logs for postmortem inspection
+
+## Release Smoke Test
+
+Run this before tagging a release:
+
+1. Start the app in strict mode: `python main.py --strict-startup`
+2. Open the browser simulator at `simulator/index.html`.
+3. Confirm the bridge shows `Connected to simulator bridge.`
+4. Click `Notice`, then verify the `State`, `Motion`, and `Light` cards update.
+5. Click `Run Full Demo`, then verify the sequence completes through `IDLE` and the `Speech` and `Memory` cards change during the run.
+
 ## Repository Structure
 
 ```

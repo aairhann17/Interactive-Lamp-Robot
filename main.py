@@ -6,6 +6,7 @@ connecting perception, dialogue, and expression systems.
 """
 
 import asyncio
+import argparse
 import logging
 import sys
 from pathlib import Path
@@ -17,7 +18,17 @@ if str(ROOT) not in sys.path:
 from orchestrator.coordinator import RobotOrchestrator
 
 
-async def main():
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the Interactive Lamp Robot orchestrator")
+    parser.add_argument(
+        "--strict-startup",
+        action="store_true",
+        help="Fail fast when deploy-time prerequisites such as API keys or a camera are missing.",
+    )
+    return parser.parse_args()
+
+
+async def main(strict_startup: bool = False):
     """Main entry point for the lamp robot."""
     logging.basicConfig(
         level=logging.INFO,
@@ -29,6 +40,7 @@ async def main():
 
     # Initialize orchestrator
     orchestrator = RobotOrchestrator()
+    orchestrator.validate_startup(strict=strict_startup)
     
     try:
         await orchestrator.run()
@@ -42,4 +54,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    arguments = parse_args()
+    asyncio.run(main(strict_startup=arguments.strict_startup))

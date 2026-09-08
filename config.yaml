@@ -181,6 +181,15 @@ debug:
   # If true, bypass actual API calls with mocks (for testing)
   mock_apis: false
 
+# Startup validation for deploy-oriented runs
+startup:
+  strict: false
+  require_camera: false
+  required_api_keys:
+    - DEEPGRAM_API_KEY
+    - ANTHROPIC_API_KEY
+    - ELEVENLABS_API_KEY
+
 # Hardware backend selection
 hardware:
   mode: "simulator"  # Future values: "real", "simulator"

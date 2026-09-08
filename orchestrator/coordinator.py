@@ -5,6 +5,7 @@ This is the main orchestration logic that binds all subsystems.
 """
 
 import asyncio
+import os
 import logging
 from typing import Optional
 
@@ -40,6 +41,7 @@ class RobotOrchestrator:
     def __init__(self, config_path: str = "config.yaml", simulator_bridge_url: Optional[str] = None):
         """Initialize orchestrator with config."""
         self.config = self._load_config(config_path)
+        self.startup_strict = bool(self.config.get("startup", {}).get("strict", False))
         self.fsm = StateMachine(initial_state=RobotState.IDLE)
         self.event_bus = get_event_bus()
         self._simulator_bridge_url = simulator_bridge_url or self.config.get("simulator", {}).get("bridge_url")
@@ -76,6 +78,42 @@ class RobotOrchestrator:
         
         self._running = False
         self._tasks = []
+
+    def validate_startup(self, strict: Optional[bool] = None) -> None:
+        """Validate deploy-time prerequisites before the app starts."""
+        strict_mode = self.startup_strict if strict is None else strict
+        if not strict_mode:
+            return
+
+        errors: list[str] = []
+        startup_config = self.config.get("startup", {})
+        required_api_keys = startup_config.get(
+            "required_api_keys",
+            ["DEEPGRAM_API_KEY", "ANTHROPIC_API_KEY", "ELEVENLABS_API_KEY"],
+        )
+
+        missing_api_keys = [name for name in required_api_keys if not os.getenv(name)]
+        if missing_api_keys:
+            errors.append(f"Missing API keys: {', '.join(missing_api_keys)}")
+
+        if startup_config.get("require_camera", False):
+            try:
+                import cv2  # type: ignore
+            except Exception as exc:  # pragma: no cover - optional dependency surface
+                errors.append(f"OpenCV camera check unavailable: {exc}")
+            else:
+                camera_index = int(
+                    self.config.get("perception", {}).get("camera_index", 0)
+                )
+                capture = cv2.VideoCapture(camera_index)
+                try:
+                    if not capture.isOpened():
+                        errors.append(f"Camera index {camera_index} is not available")
+                finally:
+                    capture.release()
+
+        if errors:
+            raise RuntimeError("Startup validation failed: " + "; ".join(errors))
     
     def _load_config(self, config_path: str) -> dict:
         """Load configuration from YAML file."""
@@ -89,6 +127,7 @@ class RobotOrchestrator:
     async def run(self) -> None:
         """Start the orchestrator and all subsystems."""
         logger.info("Initializing orchestrator")
+        self.validate_startup()
         
         # Start event bus
         await self.event_bus.start()

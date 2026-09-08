@@ -28,11 +28,17 @@ def parse_args() -> argparse.Namespace:
         default=1.0,
         help="How long to keep the simulator bridge alive after the scripted interaction.",
     )
+    parser.add_argument(
+        "--strict-startup",
+        action="store_true",
+        help="Fail fast when deploy-time prerequisites such as API keys or a camera are missing.",
+    )
     return parser.parse_args()
 
 
-async def run_demo(hold_seconds: float = 1.0, bridge_url: str | None = None) -> None:
+async def run_demo(hold_seconds: float = 1.0, bridge_url: str | None = None, strict_startup: bool = False) -> None:
     orchestrator = RobotOrchestrator(simulator_bridge_url=bridge_url)
+    orchestrator.validate_startup(strict=strict_startup)
 
     await orchestrator.event_bus.start()
     orchestrator._setup_event_subscriptions()
@@ -73,4 +79,4 @@ async def run_demo(hold_seconds: float = 1.0, bridge_url: str | None = None) -> 
 
 if __name__ == "__main__":
     args = parse_args()
-    asyncio.run(run_demo(hold_seconds=args.hold_seconds, bridge_url=args.bridge_url))
+    asyncio.run(run_demo(hold_seconds=args.hold_seconds, bridge_url=args.bridge_url, strict_startup=args.strict_startup))
