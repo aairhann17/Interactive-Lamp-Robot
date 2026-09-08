@@ -1,9 +1,8 @@
 """
-Finite State Machine (FSM) - Core orchestrator logic.
+Robot state machine.
 
-States: IDLE → NOTICE → GREET → LISTEN/CONVERSE → OBSERVE → DISENGAGE
-
-Each state has entry/exit actions and transition guards.
+This file keeps track of what the lamp is doing right now: waiting, noticing a
+person, greeting, listening, observing, or saying goodbye.
 """
 
 import asyncio
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class RobotState(Enum):
-    """Valid states for the lamp robot FSM."""
+    """The robot's possible moods and modes."""
     IDLE = "IDLE"
     NOTICE = "NOTICE"
     GREET = "GREET"
@@ -28,9 +27,10 @@ class RobotState(Enum):
 
 class StateMachine:
     """
-    Async FSM for lamp robot orchestration.
-    
-    Transitions are guarded by conditions and can trigger side effects.
+    The robot's decision engine.
+
+    It remembers the current state, decides when to change, and notifies the
+    rest of the app when that happens.
     """
     
     def __init__(self, initial_state: RobotState = RobotState.IDLE):
@@ -41,31 +41,28 @@ class StateMachine:
         self._state_data: Dict[str, Any] = {}  # Context/memory for current state
     
     def on_state_change(self, callback: Callable[[RobotState, RobotState], None]) -> None:
-        """Register a callback for state changes."""
+        """Tell the app what to do when the robot changes state."""
         self._on_state_change = callback
     
     def set_state_data(self, key: str, value: Any) -> None:
-        """Store context data for the current state."""
+        """Save a small piece of context for the current state."""
         self._state_data[key] = value
     
     def get_state_data(self, key: str, default: Any = None) -> Any:
-        """Retrieve context data."""
+        """Get a saved piece of context."""
         return self._state_data.get(key, default)
     
     def clear_state_data(self) -> None:
-        """Clear state context."""
+        """Forget the temporary state context."""
         self._state_data.clear()
     
     async def transition_to(self, new_state: RobotState) -> bool:
-        """
-        Attempt to transition to a new state.
-        Returns True if successful, False if transition was rejected.
-        """
+        """Move the robot into a new state if the change makes sense."""
         if new_state == self.current_state:
             logger.debug(f"Already in {new_state}, no transition needed")
             return True
         
-        # Cancel any pending timeout for current state
+        # Stop any timer that was waiting to change the old state.
         if self.current_state in self._state_timeouts:
             task = self._state_timeouts[self.current_state]
             if task and not task.done():
@@ -82,7 +79,7 @@ class StateMachine:
         self.current_state = new_state
         self.clear_state_data()
         
-        # Call state change callback
+        # Tell the rest of the app that the state has changed.
         if self._on_state_change:
             try:
                 result = self._on_state_change(self.previous_state, new_state)
@@ -94,10 +91,7 @@ class StateMachine:
         return True
 
     async def set_timeout(self, timeout_sec: float, next_state: RobotState) -> None:
-        """
-        Set a timeout for the current state.
-        After timeout_sec, automatically transition to next_state if still in current state.
-        """
+        """Set a timer so the robot can move on automatically later."""
         if timeout_sec <= 0:
             return
         
@@ -122,15 +116,15 @@ class StateMachine:
         self._state_timeouts[current] = task
     
     def is_in_state(self, state: RobotState) -> bool:
-        """Check if currently in a specific state."""
+        """Check whether the robot is currently in a given state."""
         return self.current_state == state
     
     def can_listen(self) -> bool:
-        """Can we accept speech input in the current state?"""
+        """Check whether the robot should pay attention to speech right now."""
         return self.current_state in (RobotState.LISTEN, RobotState.CONVERSE)
     
     def can_observe(self) -> bool:
-        """Can we trigger object observation in the current state?"""
+        """Check whether the robot should be willing to inspect an object."""
         return self.current_state in (
             RobotState.GREET,
             RobotState.LISTEN,

@@ -1,459 +1,114 @@
-# Interactive Lamp Robot Architecture
+# Interactive Lamp Robot
 
-## Overview
-A 5-DOF expressive lamp robot character that engages with humans through vision, voice, motion, light, and sound. The system uses a local finite-state machine (FSM) as the orchestrator, with selective cloud APIs for specialized perception and language tasks.
+A 5-DOF lamp robot character that reacts to people with vision, voice, motion, light, and sound. The project is built for a live demo and for portfolio review, so it has a simple local run path, a browser simulator, and a documented path to real hardware.
+
+## What It Does
+
+The robot is designed to do four things well:
+
+1. Notice a person with the camera.
+2. Respond with movement, light, and sound.
+3. Listen and speak back in a short conversation.
+4. Remember an object it saw earlier and refer to it later.
+
+The app keeps those actions coordinated through a small state machine. In practice, that means the robot can move from waiting, to greeting, to listening, to observing, and back to idle in a way that feels intentional.
+
+## How It Works
+
+The camera and microphone feed the robot's control center. That control center decides what state the robot should be in, then tells the rest of the system what to do.
+
+- Face detection decides when the robot should pay attention.
+- Speech-to-text turns spoken words into text.
+- A dialogue model turns the text into a coordinated reply.
+- The output layer drives motion, light, sound, and the browser simulator.
+
+If you switch to real hardware, the same robot commands are sent over serial to the microcontroller instead of only being shown in the browser.
 
 ## Quick Start
 
-This project is designed to be easy to run locally for a live demo or portfolio review.
+The default setup is meant to run cleanly on a fresh Windows machine.
 
-1. Clone the repo and open it in VS Code or your editor of choice.
+1. Open the repo in VS Code.
 2. Create and activate a Python virtual environment.
 3. Install dependencies with `pip install -r requirements.txt`.
-4. Run the app with `run.ps1` on Windows or `python main.py` if you prefer to launch it manually.
-5. The simulator page will open automatically, or you can open `simulator/index.html` in your browser.
-6. Use the browser controls to trigger states or run the full demo.
+4. Run `run.ps1` on Windows, or run `python main.py` directly.
+5. Open the simulator in your browser if it does not open automatically.
+6. Use the simulator buttons to trigger a single state or run the full demo.
 
-Optional:
+If you want the app to fail fast when a required API key or device is missing, run:
 
-- Use `run.ps1 -StrictStartup` to fail fast when required API keys or hardware checks are missing.
-- Use `python main.py --strict-startup` if you want the app to fail fast when required API keys or hardware checks are missing.
-- Set `hardware.mode: "real"` in `config.yaml` only when you have actual device drivers connected.
-- Leave the default simulator mode in place for recruiter demos so the project always runs cleanly on a fresh machine.
-
-## Device Protocol
-
-Real hardware mode uses a JSON-over-serial envelope defined in `hardware/device_protocol.py`.
-
-- `protocol`: `lamp-robot-device-protocol-v1`
-- `component`: `motion`, `lighting`, `sfx`, or `system`
-- `command`: the action to perform, such as `execute_gesture` or `set_state_color`
-- `payload`: command-specific data
-
-The current implementation sends commands over a serial transport, so the firmware side only needs to parse one stable message shape.
-
-## Firmware Reference
-
-The repo includes a starter firmware sketch at [firmware/lamp_robot_firmware.ino](firmware/lamp_robot_firmware.ino) that shows how to:
-
-- parse the JSON protocol envelope from serial input
-- route motion, lighting, and sound commands to actuator handlers
-- answer a simple health-check command
-
-Use it as the starting point for the microcontroller side of the robot.
-
-## System Architecture
-
-### 1. **Orchestrator / Core Logic** (`orchestrator.py`)
-**Role:** Central state machine and event coordinator
-
-**State Machine:**
-```
-IDLE
-  ↓ (face detected)
-NOTICE (play attention sfx, eye brightens)
-  ↓ (face sustained, body orient toward)
-GREET (friendly gesture + voice greeting)
-  ↓ (success OR timeout)
-LISTEN/CONVERSE (microphone active, streaming STT)
-  ↓ (user speech received)
-CONVERSE (Claude LLM generates response)
-  ↓ (response includes observation cue)
-OBSERVE (VLM triggered if object/hand detected)
-  ↓ (object analyzed, memory updated)
-DISENGAGE (face lost OR timer expires)
-  ↓ (farewell gesture, light dim)
-IDLE
+```powershell
+python main.py --strict-startup
 ```
 
-**Event Bus:**
-- `asyncio.Queue`-based pub/sub
-- Topics: `camera.face_detected`, `camera.object_presented`, `audio.speech_received`, `llm.response`, `memory.updated`
-- Subscribers: perception modules, response generator, output executors
+## Simulator
 
-### 2. **Perception Pipeline**
+The browser simulator is the easiest way to see the project working end to end.
 
-#### 2.1 Local Perception (MediaPipe Face Landmarker)
-**Module:** `perception/face_detection.py`
-- **Input:** Laptop camera (continuous 30 FPS)
-- **Output:** Face presence, head pose (yaw, pitch, roll), confidence
-- **Decision:** Engagement trigger (face appears → NOTICE), Disengagement (face absent > 5 sec → DISENGAGE)
-- **Processing:** Local-only, CPU or GPU via MediaPipe
+- `simulator/index.html` opens the visual demo.
+- `simulator/app.js` updates the lamp based on messages from Python.
+- `sim_bridge/websocket_server.py` sends the robot state into the browser.
 
-#### 2.2 Object Presentation Heuristic
-**Module:** `perception/object_detector.py`
-- **Input:** Camera frame
-- **Logic:** Detect new large object, hand approach, or voice cue ("look at this")
-- **Output:** `{ object_bbox, presentation_confidence }`
-- **Decision:** Triggers OBSERVE state if confidence > threshold
+The simulator includes manual controls and a full demo sequence, so it can show the robot's behavior even on a machine without real hardware.
 
-#### 2.3 Cloud Vision-Language Model
-**Module:** `perception/vlm_analyzer.py`
-- **Trigger:** OBSERVE state, only when object detected
-- **Input:** Single cropped frame (object ROI) + optional user context ("what is this?")
-- **API:** Claude vision or GPT-4V
-- **Output:** Object label, attributes, function/purpose
-- **Data Privacy:** Only the cropped object frame sent to cloud; raw camera never leaves device
-- **Caching:** Store results in memory to avoid duplicate API calls
+## Real Hardware Path
 
-### 3. **Speech System**
+Real hardware uses a small JSON-over-serial protocol defined in [hardware/device_protocol.py](hardware/device_protocol.py).
 
-#### 3.1 Speech-to-Text (STT)
-**Module:** `speech/stt.py`
-- **API:** Deepgram (low-latency streaming) or OpenAI Whisper API
-- **Activation:** Only when FSM is in `LISTEN` state
-- **Input:** Microphone stream (local buffering)
-- **Output:** Transcribed text, optional confidence
-- **Data Privacy:** Audio streamed only during LISTEN; no recording stored
+The message includes:
 
-#### 3.2 Speech-to-Gesture-to-Text (LLM Dialogue)
-**Module:** `dialogue/conversation.py`
-- **API:** Claude 3.5 Sonnet
-- **Input:** Transcribed user text + scene context + memory
-- **Output:** Structured JSON
-  ```json
-  {
-    "speech": "Sure! That's a coffee mug. I love how warm colors make me feel...",
-    "gesture": "warm_embrace",
-    "light": { "hue": 45, "saturation": 0.8, "brightness": 0.9 },
-    "sfx": "subtle_chime",
-    "observe_trigger": false
-  }
-  ```
-- **Key Design:** Single LLM call drives all modalities → cohesive, coordinated expression
+- `protocol`: the version name for the device contract
+- `component`: which part of the robot should act
+- `command`: what that part should do
+- `payload`: any details needed for the command
 
-#### 3.3 Text-to-Speech (TTS)
-**Module:** `speech/tts.py`
-- **Primary API:** ElevenLabs (expressive voices, emotion control)
-- **Fallback:** Piper (offline, Mozilla-trained, runs locally)
-- **Input:** Speech text + optional emotional tone
-- **Output:** Audio stream queued to speaker
+The repo also includes a starter firmware sketch at [firmware/lamp_robot_firmware.ino](firmware/lamp_robot_firmware.ino). It shows how the microcontroller can read those commands and route them to motion, lighting, and sound handlers.
 
-### 4. **Expression Outputs**
+## Project Layout
 
-#### 4.1 Motion (5-DOF Gestures)
-**Module:** `expression/gestures.py`
-- **Gesture Library:** Named actions
-  - `neutral` — idle pose
-  - `attention_grab` — rapid base rotation + lift pulse
-  - `warm_embrace` — slow arm extension + tilt
-  - `curious_inspect` — head tilt + extension (approach object)
-  - `confused_shrug` — oscillate head
-  - `farewell_wave` — extended base rotation
-- **Representation:** Joint target angles (5 DOF) + duration + easing function
-- **Output:** Serial protocol (USB/TCP) to simulator or real hardware
-- **Interpolation:** Smooth cubic spline over duration
-
-#### 4.2 Light Expression
-**Module:** `expression/lighting.py`
-- **State → Color Mapping:**
-  - `IDLE` → dim, cool blue
-  - `NOTICE` → bright white (alert)
-  - `GREET` → warm yellow/orange
-  - `LISTEN` → animated pulse (listening state)
-  - `OBSERVE` → saturated, focused color
-  - `CONVERSE` → responsive color shift per emotion
-  - `DISENGAGE` → fade to dark
-- **Implementation:** RGB LED or WebGL lighting in simulator
-- **Sync:** Timed to gesture start for emotional coherence
-
-#### 4.3 Sound Effects
-**Module:** `expression/sfx.py`
-- **Library:** Short clips (<2 sec) via `pygame.mixer`
-  - `engagement_chime` — ascending bell tone (NOTICE → GREET)
-  - `thinking_beep` — soft processing sound (waiting for STT)
-  - `success_ding` — confirmation tone (object recognized)
-  - `confused_chirp` — uncertain sound
-- **Trigger:** Per orchestrator state or LLM output
-
-#### 4.4 Music / Emotional Stings
-**Module:** `expression/music.py`
-- **Stings:** Short (4–8 bar) musical phrases for key emotional moments
-  - Warm greeting sting
-  - Curious exploration sting
-  - Confident/understanding sting
-- **Library:** Pre-composed or AI-generated via Suno/Udio, cached locally
-- **Playback:** Overlaid under dialogue or during transitions
-
-### 5. **Memory & Scene Understanding**
-
-**Module:** `memory/scene_graph.py`
-- **Storage:** SQLite table or in-session dict
-  ```sql
-  CREATE TABLE objects (
-    id INTEGER PRIMARY KEY,
-    label TEXT,
-    description TEXT,
-    first_observed TIMESTAMP,
-    last_observed TIMESTAMP,
-    visual_features TEXT -- JSON: {color, shape, size, position}
-  );
-  ```
-- **Update:** After VLM analysis, before CONVERSE state
-- **Query:** Dialogue module can retrieve "have you seen a red object?" → searches memory
-- **Lifecycle:** Persist across session; clear on restart
-- **Future Scale:** Vector embeddings + similarity search (not implemented at MVP)
-
-### 6. **Simulated Robot Body (Three.js + URDF)**
-
-#### 6.1 Browser Simulator
-**Files:**
-- `simulator/index.html` — entry point
-- `simulator/app.js` — Three.js scene, camera, lighting, controls
-- `simulator/urdf_model.urdf` — 5-DOF lamp kinematic chain
-
-**Features:**
-- Load URDF model
-- 5-DOF joint control sliders
-- Real-time gesture playback
-- Synchronized LED lighting visualization
-- WebSocket connection to Python orchestrator
-
-#### 6.2 Python ↔ Browser WebSocket
-**Module:** `sim_bridge/websocket_server.py`
-- **Protocol:**
-  ```json
-  // Python → Browser (joint command)
-  {
-    "type": "motion",
-    "joints": {
-      "base_rotation": 45.0,
-      "lift": 30.0,
-      "extension": 20.0,
-      "head_tilt": -15.0,
-      "eye_pan": 0.0
-    },
-    "duration_ms": 1000,
-    "easing": "cubic-inout"
-  }
-  
-  // Python → Browser (lighting)
-  {
-    "type": "lighting",
-    "rgb": [255, 150, 50],
-    "duration_ms": 500,
-    "breathing": false
-  }
-  ```
-
-**Run modes:**
-- Persistent bridge server: `python -m sim_bridge.run_server`
-- Demo publisher against an external bridge: `python demo/interaction_demo.py --bridge-url ws://127.0.0.1:8765`
-- Default demo mode still starts its own local bridge when `--bridge-url` is omitted
-
-### 7. **Gesture Choreography & Trajectory Planning**
-
-**Module:** `choreography/interpolation.py`
-- Accepts gesture name + duration
-- Looks up joint targets from gesture library
-- Generates smooth spline from current joint state → target state
-- Evaluates spline at 30 Hz → stream to simulator
-- Supports parallel execution (e.g., light + motion at same time)
-
-## Data Flow Diagram
-
-```
-┌─────────────┐
-│   Camera    │
-└──────┬──────┘
-       │ (30 FPS)
-       ▼
-┌──────────────────────┐      ┌───────────────┐
-│ MediaPipe Face       │────→ │ Orchestrator  │
-│ Detection            │      │ FSM           │
-└──────────────────────┘      │               │
-                               │ (event bus)   │
-┌──────────────────┐      ┌───┴──────────┬────┘
-│ Object Detection │─────→│              │
-│ (heuristic)      │      │              │
-└──────────────────┘      │              │
-                          │              │
-┌──────────────────┐      │              │
-│  Microphone      │──────→  LISTEN      │
-│  (STT stream)    │      │  state       │
-└──────────────────┘      │              │
-        │                 │              │
-        └─ [DEEPGRAM] ────→│              │
-                          │              │
-                   [CLAUDE VLM] ◄────────│ (object frame)
-                        │               │
-                   [CLAUDE LLM] ◄────────│ (dialogue)
-                        │               │
-                        └───────┬───────┘
-                                │
-                    ┌───────────┼───────────┐
-                    ▼           ▼           ▼
-              ┌─────────┐ ┌─────────┐ ┌─────────┐
-              │ Gesture │ │ Lighting│ │  TTS    │
-              │ Executor│ │ Executor│ │ Executor│
-              └────┬────┘ └────┬────┘ └────┬────┘
-                   │           │           │
-                   └───────┬───┴───┬───────┘
-                           │       │
-                   ┌───────▼─┐   ┌─▼──────┐
-                   │WebSocket│   │Speaker │
-                   │(Browser)│   │(Audio) │
-                   └────┬────┘   └────────┘
-                        │
-                   ┌────▼─────┐
-                   │Three.js   │
-                   │Simulator  │
-                   │(URDF)     │
-                   └──────────┘
-```
-
-## Data Privacy & Cloud Decisions
-
-| Component | Local? | Cloud? | Reasoning |
-|-----------|--------|--------|-----------|
-| Face detection | ✓ | — | MediaPipe runs locally; always-on low-latency |
-| Object detection | ✓ | — | Simple heuristic (motion, hand detection) |
-| Gesture planning | ✓ | — | FSM + kinematics; no ML needed |
-| STT | — | ✓ (Deepgram) | Streaming required; local Whisper slower |
-| VLM (object analyze) | — | ✓ (Claude) | One-shot, triggered only; complex reasoning |
-| LLM (dialogue) | — | ✓ (Claude) | Conversational; state-of-art not worth local |
-| TTS | ⚪ | ✓ (ElevenLabs primary) | Expressive voices; fallback to Piper |
-| Memory storage | ✓ | — | SQLite local; no sync across devices |
-| Motion output | ✓ | — | Local interpolation → simulator/hardware |
-
-**Key Principle:** Minimize cloud data leakage. Audio only during LISTEN; camera only sends object ROI to VLM; all orchestration decisions made locally.
-
-## Future Extensions (not MVP)
-
-1. **Vector Search Memory:** Embed object descriptions; allow fuzzy retrieval ("red thing from before")
-2. **Multi-modal Gesture Synthesis:** Learn new gestures from video or user demonstration
-3. **Real Robot Hardware:** Replace WebSocket simulator with actual motor control (e.g., ROS 2)
-4. **Persistent State:** Save memory/learned preferences across sessions
-5. **Multi-agent Collaboration:** Multiple robots interacting with each other
-6. **Fine-tuned Local LLM:** Use a smaller model (Mistral, Phi) for dialogue to reduce cloud dependency
-
-## Completion Checklist
-
-Use this as the definition of "ready to deploy":
-
-- Hardware layer exists for motion, lighting, audio input, audio output, and camera selection.
-- Simulator mode and real-device mode can be selected from config without changing application code.
-- Manual state controls work end to end in the browser simulator.
-- Full demo preset runs through notice, greet, listen, converse, observe, disengage, and idle.
-- Face detection, object detection, STT, TTS, and VLM all have deterministic fallback behavior.
-- Startup checks fail fast when a required device, API key, or service is missing.
-- Configuration is documented and all secrets come from environment variables.
-- Tests pass in CI and cover the main state transitions and fallback paths.
-- Logging is structured enough to debug a failed demo run quickly.
-- Packaging and launch instructions are repeatable from a clean machine.
-- Deployment target is defined, including ports, process supervision, and restart policy.
-- The app has one documented smoke test that a human can run before a release.
+- [main.py](main.py): app entry point
+- [orchestrator/](orchestrator): robot control flow and state machine
+- [perception/](perception): face and object detection plus visual analysis
+- [speech/](speech): speech-to-text and text-to-speech helpers
+- [dialogue/](dialogue): builds the robot's spoken reply
+- [expression/](expression): motion, light, and sound output helpers
+- [memory/](memory): remembers objects the robot has seen
+- [sim_bridge/](sim_bridge): browser bridge for the simulator
+- [simulator/](simulator): visual front end for the demo
+- [demo/](demo): scripted end-to-end interaction demo
+- [firmware/](firmware): starter code for the device side
 
 ## Deployment Target
 
-The current deployment target is a supervised Python process that listens on the simulator bridge port configured in `config.yaml`.
+The current deployment target is a supervised Python process that talks to the simulator bridge port in `config.yaml`.
 
 - Local development: `python main.py`
-- Deploy-oriented startup check: `python main.py --strict-startup`
-- Browser simulator bridge: `8080` by default
-- Process supervision: run the Python process under a restart-capable supervisor such as `systemd` on Linux or NSSM on Windows
-- Restart policy: restart on crash, restart on boot, and keep logs for postmortem inspection
+- Startup check for deployment: `python main.py --strict-startup`
+- Default browser bridge port: `8080`
+- Recommended supervision: `systemd` on Linux or NSSM on Windows
+- Restart policy: restart on crash, restart on boot, and keep logs for troubleshooting
 
 ## Release Smoke Test
 
 Run this before tagging a release:
 
-1. Start the app in strict mode: `python main.py --strict-startup`
-2. Open the browser simulator at `simulator/index.html`.
-3. Confirm the bridge shows `Connected to simulator bridge.`
-4. Click `Notice`, then verify the `State`, `Motion`, and `Light` cards update.
-5. Click `Run Full Demo`, then verify the sequence completes through `IDLE` and the `Speech` and `Memory` cards change during the run.
+1. Start the app in strict mode.
+2. Open `simulator/index.html`.
+3. Confirm the browser says it is connected to the bridge.
+4. Click `Notice` and verify the state, motion, and light panels change.
+5. Click `Run Full Demo` and confirm the sequence reaches `IDLE` again.
 
-## Repository Structure
+## Notes
 
-```
-Interactive-Lamp-Robot/
-├── ARCHITECTURE.md (this file)
-├── requirements.txt
-├── config.yaml
-├── main.py (entry point)
-│
-├── orchestrator/
-│   ├── __init__.py
-│   ├── fsm.py (state machine)
-│   ├── event_bus.py (pub/sub)
-│   └── coordinator.py (tie everything together)
-│
-├── perception/
-│   ├── face_detection.py (MediaPipe)
-│   ├── object_detector.py (heuristic)
-│   └── vlm_analyzer.py (cloud vision)
-│
-├── speech/
-│   ├── stt.py (Deepgram/Whisper)
-│   └── tts.py (ElevenLabs/Piper)
-│
-├── dialogue/
-│   └── conversation.py (Claude)
-│
-├── expression/
-│   ├── gestures.py (gesture library + interpolation)
-│   ├── lighting.py (color mappings)
-│   ├── sfx.py (sound effects)
-│   └── music.py (emotional stings)
-│
-├── memory/
-│   └── scene_graph.py (object storage)
-│
-├── sim_bridge/
-│   └── websocket_server.py (Python → Browser)
-│
-├── simulator/
-│   ├── index.html
-│   ├── app.js
-│   ├── style.css
-│   └── urdf_model.urdf
-│
-└── demo/
-    └── demo_interaction.py (full end-to-end demo)
-```
+- The default mode is simulator-first so the repo is easy to demo on a fresh machine.
+- Real hardware mode should only be enabled when the serial device is connected.
+- `config.yaml` holds the runtime settings, while environment variables should hold secrets.
 
-## Design Decisions & Tradeoffs
 
-### 1. **FSM over Event Sourcing**
-- ✓ **Simple, auditable:** State is explicit; easy to debug
-- ✓ **Real-time responsiveness:** Immediate state transitions
-- ✗ **Limited history:** No full replay; mitigated by logging
 
-### 2. **Cloud LLM + Local FSM**
-- ✓ **Best of both:** Cloud for reasoning, local for immediate decisions
-- ✗ **Latency:** ~500ms STT + 1s LLM = ~1.5s response time (acceptable for character)
-- ✗ **Dependency:** No cloud = robot silent; Piper TTS fallback helps
 
-### 3. **Gesture Library vs. IK Solver**
-- ✓ **Simplicity:** Pre-defined gestures easy to author and test
-- ✗ **Flexibility:** Can't reach arbitrary point in space
-- ✓ **For 5-DOF lamp:** Named poses sufficient; IK adds complexity
 
-### 4. **Browser Simulator over ROS/Gazebo**
-- ✓ **Accessibility:** No ROS installation; works on any laptop
-- ✓ **Visual fidelity:** Three.js WebGL good for real-time viz
-- ✗ **Physics:** No realistic dynamics; acceptable for character demo
-- *Note:* WebSocket bridge makes ROS/Gazebo swap-in feasible later
 
-### 5. **Deepgram STT over Local Whisper**
-- ✓ **Latency:** 0.3s vs. 2s for local Whisper
-- ✗ **Cloud dependency:** No offline fallback
-- ✓ **Cost:** ~$0.01–0.02 per minute; affordable for demo
 
-### 6. **Single LLM Output (`{ speech, gesture, light, sfx }`)**
-- ✓ **Coherence:** One neural network decides all modalities
-- ✓ **Latency:** Single API call vs. three separate calls
-- ✗ **Control:** Less granular per-output tuning
-- ✓ **Prompting:** Clear structured output format with examples
 
-## Configuration & Environment Variables
-
-See `config.yaml` for:
-- API keys (Deepgram, Claude, ElevenLabs)
-- FSM state timeouts
-- Gesture interpolation smoothness
-- Camera/audio device selection
-- WebSocket server port
-- Log level
 

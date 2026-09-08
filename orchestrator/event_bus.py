@@ -1,7 +1,8 @@
 """
-Event Bus - In-process pub/sub for orchestrator state changes and perception events.
+Message hub for the robot.
 
-Uses asyncio.Queue for efficient inter-component communication.
+This file lets the camera, speech system, memory, and robot actions send short
+messages to each other without having to know who will read them.
 """
 
 import asyncio
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Event:
-    """Generic event with topic and payload."""
+    """A small message that says what happened and carries the details."""
     topic: str
     payload: Dict[str, Any]
     
@@ -25,19 +26,10 @@ class Event:
 
 class EventBus:
     """
-    Simple pub/sub event bus using asyncio.Queue.
-    
-    Topics:
-    - camera.face_detected: { confidence, head_pose: {yaw, pitch, roll}, bbox }
-    - camera.face_lost: {}
-    - camera.object_presented: { bbox, object_id }
-    - audio.speech_started: {}
-    - audio.speech_received: { text, confidence }
-    - audio.listening_active: { active: bool }
-    - llm.response_generated: { speech, gesture, light, sfx, observe_trigger }
-    - vlm.object_analyzed: { label, description, object_id }
-    - memory.object_stored: { object_id, label }
-    - orchestrator.state_changed: { old_state, new_state }
+    Message system for the robot.
+
+    It carries events like "a face was seen," "speech was heard," or "the
+    robot changed state" to any part of the app that wants to react.
     """
     
     def __init__(self):
@@ -46,12 +38,7 @@ class EventBus:
         self._running = False
     
     def subscribe(self, topic: str, callback: Callable[[Event], None]) -> Callable:
-        """
-        Subscribe a callback to a topic.
-        Callback should accept an Event argument.
-        
-        Returns an unsubscribe function.
-        """
+        """Register a function that should run when a specific event happens."""
         if topic not in self._subscribers:
             self._subscribers[topic] = []
         
@@ -66,16 +53,16 @@ class EventBus:
         return unsubscribe
     
     async def publish(self, event: Event) -> None:
-        """Publish an event; will be dispatched to all subscribers."""
+        """Send a message into the event system."""
         await self._queue.put(event)
     
     async def _dispatch_worker(self) -> None:
-        """Internal worker that pulls from queue and calls subscribers."""
+        """Background worker that forwards each message to the right listeners."""
         while self._running:
             try:
                 event = await asyncio.wait_for(self._queue.get(), timeout=1.0)
                 
-                # Call wildcard subscribers (if any)
+                # Send the message to listeners who want to see everything.
                 if "*" in self._subscribers:
                     for callback in self._subscribers["*"]:
                         try:
@@ -85,7 +72,7 @@ class EventBus:
                         except Exception as e:
                             logger.exception(f"Error in wildcard subscriber: {e}", exc_info=True)
                 
-                # Call topic-specific subscribers
+                # Then send it to listeners who asked for this exact topic.
                 if event.topic in self._subscribers:
                     for callback in self._subscribers[event.topic]:
                         try:
@@ -107,7 +94,7 @@ class EventBus:
                 logger.exception(f"Dispatch worker error: {e}", exc_info=True)
     
     async def start(self) -> None:
-        """Start the event dispatch worker."""
+        """Turn on the message worker."""
         if self._running:
             return
         self._running = True
@@ -115,7 +102,7 @@ class EventBus:
         logger.info("Event bus started")
     
     async def stop(self) -> None:
-        """Stop the event dispatch worker and wait for pending events."""
+        """Shut down the message worker after queued work is handled."""
         self._running = False
         try:
             await asyncio.wait_for(self._dispatch_task, timeout=5.0)
@@ -138,7 +125,7 @@ _event_bus: Optional[EventBus] = None
 
 
 def get_event_bus() -> EventBus:
-    """Get or create the global event bus instance."""
+    """Get the shared message hub used by the whole app."""
     global _event_bus
     if _event_bus is None:
         _event_bus = EventBus()
